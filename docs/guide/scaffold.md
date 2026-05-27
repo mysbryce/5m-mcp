@@ -1,0 +1,60 @@
+# Scaffold a new resource
+
+The fastest way to produce a non-trivial new FiveM resource through an agent is to invoke the **grill workflow**. It forces the agent to ask every architectural question before any file is written.
+
+## Triggering the workflow
+
+::: code-group
+
+```text [Claude Code (slash)]
+> /agent_api:scaffold-fivem-resource
+```
+
+```text [Any client (intent)]
+> สร้าง resource ใหม่ที่...
+> create a new fivem resource for ...
+> build a script that ...
+```
+
+:::
+
+The intent-detection path works in every client. The slash-command path is Claude Code only (other clients don't surface MCP prompts).
+
+## What the agent will do
+
+It cannot skip steps — its mandatory contract is loaded into context. Question tree in order:
+
+1. **Identity** — name, description, author
+2. **Layout** — one file vs multi-file with `server/`, `client/`, `shared/`, `config/` subfolders. Flat layouts forbidden.
+3. **Module style** — globals via manifest vs `return {}` + `lib.require` (needs ox_lib)
+4. **Config split** — `config/shared.lua`, `config/client.lua`, `config/server.lua`. The last one stays server-side and is the only safe place for secrets.
+5. **Framework** — standalone, ESX, QBCore, ox_core, multiple
+6. **ox_lib** — yes / no
+7. **oxmysql** — none / yes (+ list of tables to own)
+8. **UI** — none / yes
+9. **UI stack** — pure HTML+JS / Vite framework
+10. **Framework choice** — Vue 3 / React / Svelte / Solid / Preact
+11. **State management** — built-in / Pinia/Zustand/etc / none
+12. **CSS approach** — plain / scoped / Tailwind / UnoCSS
+13. **Animations** — none / CSS transitions / framework transitions / GSAP
+14. **Validation** — none / hand-rolled / Zod/Valibot
+15. **Icons** — none / inline SVG / Lucide / Phosphor
+16. **Open key / command** — F6 + `/<name>` recommended
+17. **NUI focus model** — modal / overlay / hybrid
+18. **Lifecycle** — start, playerDropped, stop behaviour
+19. **Audit + rate limit** — what to log, what to throttle
+
+Every question carries a "Recommended:" line so you can type "ok" / "เอา" and move on. To revise a decision before the agent starts writing, say `edit <number>`.
+
+## Then it builds
+
+Once you confirm the summary, the agent walks the scaffolding phase:
+
+1. `create_resource`
+2. `refresh_resources`
+3. If UI = Vite: `run_shell npm create vite ...`, `run_shell npm install`, edit `vite.config`, `run_shell npm run build`
+4. `write_file` every Lua / config file (sandbox-checked)
+5. `ensure_resource`
+6. If state didn't reach `started`: `tail_console`, propose a fix, ask before rewriting
+
+You see every step. Nothing happens silently.

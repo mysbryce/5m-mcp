@@ -1,5 +1,6 @@
 # agent_api
 
+> 📖 **Docs site:** <https://mysbryce.github.io/5m-mcp/>
 > Source: <https://github.com/mysbryce/5m-mcp>
 > License: [PolyForm Noncommercial 1.0.0](./LICENSE) — non-commercial use only, attribution required.
 

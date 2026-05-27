@@ -1,6 +1,7 @@
 import { build, context } from 'esbuild';
 
 const watch = process.argv.includes('--watch');
+const dev = watch || process.argv.includes('--dev');
 
 /** @type {import("esbuild").BuildOptions} */
 const common = {
@@ -11,7 +12,11 @@ const common = {
   logLevel: 'info',
   legalComments: 'none',
   sourcemap: false,
-  minify: false,
+  minify: !dev,
+  minifyWhitespace: !dev,
+  minifyIdentifiers: !dev,
+  minifySyntax: !dev,
+  keepNames: !dev,
 };
 
 const targets = [

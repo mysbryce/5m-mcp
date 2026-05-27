@@ -1,0 +1,114 @@
+# Configuration
+
+Everything `agent_api` exposes is convar-driven. All convars are read once at resource start; restart `agent_api` to pick up a change.
+
+## Core
+
+```cfg
+set agent_api_token                       ""          # blank = auto-generate
+set agent_api_readonly                    false       # closes every mutating tool
+set agent_api_root                        "resources/[agent]"
+set agent_api_allow_write_paths           ""          # csv, extra write roots
+set agent_api_allow_control_paths         ""          # csv, extra lifecycle roots
+```
+
+| convar | default | meaning |
+| --- | --- | --- |
+| `agent_api_token` | (blank) | bearer token in `x-agent-token` header. Blank → generate + persist to `dist/.agent_token` |
+| `agent_api_readonly` | `false` | when `true`, every mutating tool (write, ensure/start/..., shell, ESX add_money, native verbs not starting with Get/Has/Is/...) refuses |
+| `agent_api_root` | `resources/[agent]` | sandbox root for writes + lifecycle |
+| `agent_api_allow_write_paths` | (none) | additional write roots (csv) |
+| `agent_api_allow_control_paths` | (none) | additional lifecycle roots (csv) |
+
+## Buffers and limits
+
+```cfg
+set agent_api_console_buffer_lines        2000
+set agent_api_max_file_bytes              2097152     # 2 MB
+set agent_api_extra_write_extensions      ""          # csv, e.g. ".webp,.lock"
+set agent_api_rate_per_minute             120
+```
+
+| convar | default | meaning |
+| --- | --- | --- |
+| `agent_api_console_buffer_lines` | `2000` | size of the in-memory ring buffer used by `tail_console` |
+| `agent_api_max_file_bytes` | `2_097_152` | hard cap on `read_file` / `write_file` |
+| `agent_api_extra_write_extensions` | (none) | append extensions to the writable allowlist (csv, with or without the leading `.`) |
+| `agent_api_rate_per_minute` | `120` | token-bucket cap per `x-agent-token` hash; over → `429 RATE_LIMITED` |
+
+## Live client testing
+
+```cfg
+set agent_api_test_session_ttl_seconds    1800
+set agent_api_test_max_subjects           4
+set agent_api_client_blocked_natives      ""          # csv
+```
+
+| convar | default | meaning |
+| --- | --- | --- |
+| `agent_api_test_session_ttl_seconds` | `1800` | how long `/agent_test_optin` stays valid |
+| `agent_api_test_max_subjects` | `4` | size of the active subject pool |
+| `agent_api_client_blocked_natives` | (none) | per-name blocklist enforced before `client_call_native` |
+
+## Server-side natives
+
+```cfg
+set agent_api_server_blocked_natives      ""          # csv
+```
+
+In addition to the user blocklist, `server_call_native` carries a built-in danger list that always refuses: `DropPlayer`, `ExecuteCommand`, `StopResource`, `StartResource`, `ScheduleResourceTick`, `PrintStructuredTrace`, `CancelEvent`, `TempBanPlayer`, `BanPlayer`. Use the dedicated tools (`run_command`, `ensure_resource`, etc.) for those instead.
+
+## Shell
+
+```cfg
+set agent_api_shell_allowed_commands      ""          # csv; default = npm,npx,pnpm,yarn,bun,vite,git,node
+set agent_api_node_binary                 "node"      # used by screenshot_nui spawn
+```
+
+If `agent_api_shell_allowed_commands` is non-empty it **replaces** the default — set it to your full allowlist, not just additions.
+
+## Plugins
+
+```cfg
+set agent_api_plugin_esx_enabled          auto        # auto | true | false
+set agent_api_plugin_oxlib_enabled        auto
+set agent_api_plugin_oxmysql_enabled      auto
+```
+
+- `auto` — load only if the target resource is started. Default.
+- `true` / `force` — load even if detection fails.
+- `false` — never load, even if detected.
+
+### Plugin-specific
+
+```cfg
+set agent_api_plugin_esx_blocked_methods           ""          # csv of xPlayer/ESX method names to refuse
+set agent_api_plugin_oxlib_blocked_methods         ""          # csv of ox_lib server export names to refuse
+set agent_api_plugin_oxmysql_readonly              true        # SELECT-only
+set agent_api_plugin_oxmysql_allow_statements      "SELECT"    # csv, uppercase, e.g. "SELECT,INSERT,UPDATE"
+```
+
+## Full example `server.cfg` block
+
+```cfg
+# agent_api
+set agent_api_token                       ""
+set agent_api_readonly                    false
+set agent_api_root                        "resources/[agent]"
+set agent_api_rate_per_minute             120
+set agent_api_test_session_ttl_seconds    1800
+
+# Open oxmysql for full CRUD on app-owned tables only
+set agent_api_plugin_oxmysql_readonly         false
+set agent_api_plugin_oxmysql_allow_statements "SELECT,INSERT,UPDATE,DELETE"
+
+# ACE
+add_ace resource.agent_api command.ensure  allow
+add_ace resource.agent_api command.start   allow
+add_ace resource.agent_api command.stop    allow
+add_ace resource.agent_api command.restart allow
+add_ace resource.agent_api command.refresh allow
+add_ace resource.agent_api command.say     allow
+
+ensure agent_api
+```

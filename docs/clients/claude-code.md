@@ -1,0 +1,61 @@
+# Claude Code (HTTP)
+
+**Recommended.** Claude Code has first-class support for MCP over HTTP. No shim, no extra process.
+
+## Setup
+
+After the resource boots, the FiveM console prints a copy-paste-ready JSON block. Paste it under `mcpServers` in one of these files:
+
+- `~/.claude.json` — user-global (applies to every project)
+- `<project>/.mcp.json` — project-scoped
+
+```json
+{
+  "mcpServers": {
+    "agent_api": {
+      "type": "http",
+      "url": "http://127.0.0.1:30120/agent_api/mcp",
+      "headers": {
+        "x-agent-token": "PASTE_YOUR_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+Restart any open Claude Code session. The MCP server appears in `/mcp` with 36+ tools and one prompt.
+
+## Verify
+
+```sh
+claude
+> /mcp
+```
+
+You should see:
+
+```
+agent_api · 36 tools, 1 prompt
+```
+
+If you see fewer than 36 tools, check that the plugins succeeded:
+
+```
+> list_plugins
+```
+
+## Using the scaffold prompt
+
+```
+> /agent_api:scaffold-fivem-resource
+```
+
+This injects the grill workflow into the conversation. Claude will refuse to write any files until you've answered every question.
+
+You can also trigger the same workflow by intent — just say "create a new fivem resource" and Claude will auto-call the `scaffold_fivem_resource_workflow` tool because its description matches the intent.
+
+## Notes
+
+- Token rotation: delete `dist/.agent_token`, restart `agent_api`, paste the new token into your config.
+- The HTTP server binds to `127.0.0.1` only. To reach `agent_api` from a different machine, either change the bind (advanced) or SSH-tunnel `30120` to your dev machine.
+- Body limit is 5 MB. Tool calls returning more than that are extremely rare.

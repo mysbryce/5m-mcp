@@ -3,6 +3,8 @@ dist/.agent_token
 dist/audit.log
 dist/screenshots/
 out/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 *.log
 .DS_Store
 .idea/
