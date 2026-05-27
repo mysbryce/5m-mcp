@@ -1,0 +1,85 @@
+---
+title: Codex CLI
+description: Auto-install via a paste-into-Codex prompt, or wire ~/.codex/config.toml by hand.
+---
+
+Codex CLI (OpenAI) supports stdio MCP servers. Use the bundled shim.
+
+## Auto-install via Codex itself
+
+Open Codex in any directory and paste the prompt below. Codex will discover the repo on its own and wire `~/.codex/config.toml` for you.
+
+````
+Install the `agent_api` MCP server into my Codex configuration.
+
+# Inputs
+- AGENT_API_REPO: leave blank — discover automatically (see step 1).
+- AGENT_API_URL : default `http://127.0.0.1:30120/agent_api/mcp` unless I told you otherwise.
+
+# Steps (stop on first failure)
+
+1. Locate the agent_api repo (must contain `dist/mcp-stdio.js` and
+   `dist/.agent_token`). Try, in order:
+   a. cwd, walk up 5 levels
+   b. Windows: D:/Sure/5m-mcp, C:/dev/5m-mcp, %USERPROFILE%/5m-mcp,
+      %USERPROFILE%/dev/5m-mcp, %USERPROFILE%/Documents/5m-mcp
+      macOS/Linux: ~/5m-mcp, ~/dev/5m-mcp, ~/projects/5m-mcp,
+      ~/src/5m-mcp, ~/code/5m-mcp
+   c. `git rev-parse --show-toplevel` if cwd is in a clone
+   d. ask me as a last resort.
+   Save the absolute path as REPO.
+
+2. Verify REPO/dist/.agent_token. If missing, stop and tell me to start
+   the FiveM server with agent_api once.
+
+3. Read the token (trim whitespace).
+
+4. Resolve REPO/dist/mcp-stdio.js. If missing, run `npm run build` in REPO.
+
+5. Resolve the Codex config path:
+   Windows: %USERPROFILE%\.codex\config.toml
+   macOS/Linux: ~/.codex/config.toml
+   Create the parent directory if missing.
+
+6. If the file is missing, create it with:
+
+   ```toml
+   [mcp_servers.agent_api]
+   command = "node"
+   args = ["<abs path to dist/mcp-stdio.js>"]
+   startup_timeout_ms = 10000
+   [mcp_servers.agent_api.env]
+   AGENT_API_URL = "http://127.0.0.1:30120/agent_api/mcp"
+   AGENT_API_TOKEN = "<token>"
+   ```
+
+7. If it exists: parse as TOML, in-memory backup, then either overwrite
+   the agent_api block's args + token (leave other settings) or append it.
+   Preserve every other section.
+
+8. Validate the file parses. If not, restore the backup.
+
+9. Print a summary: REPO, config path, token's first 8 chars only,
+   mcp-stdio.js path.
+
+10. Tell me to restart Codex.
+
+Do not modify other files. Do not start FiveM. Do not commit.
+````
+
+## Manual install
+
+Edit `~/.codex/config.toml` (Windows: `%USERPROFILE%\.codex\config.toml`):
+
+```toml
+[mcp_servers.agent_api]
+command = "node"
+args = ["C:/full/path/to/5m-mcp/dist/mcp-stdio.js"]
+startup_timeout_ms = 10000
+
+[mcp_servers.agent_api.env]
+AGENT_API_URL = "http://127.0.0.1:30120/agent_api/mcp"
+AGENT_API_TOKEN = "paste-token-here"
+```
+
+Restart Codex. Ask "list MCP tools" — `agent_api` should appear.

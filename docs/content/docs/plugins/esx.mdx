@@ -1,0 +1,56 @@
+---
+title: ESX plugin
+description: Read player snapshots, mutate money/jobs (when readonly is off), reflectively call any xPlayer method.
+---
+
+Detects ESX Legacy (`es_extended`) by checking that the resource is started AND that the `getSharedObject` export is callable.
+
+## Auto-detected exports
+
+Caches the shared object via `exports['es_extended'].getSharedObject()` on first use.
+
+## Always-on tools
+
+| Tool | Returns |
+| --- | --- |
+| `esx_list_players` | `{ count, players: [{ serverId, identifier, name, money, accounts, job }] }` |
+| `esx_get_player({ serverId })` | One player snapshot |
+| `esx_list_shared_methods` | Every callable method on the ESX shared object |
+| `esx_list_player_methods({ serverId })` | Every callable method on one xPlayer (`getInventory`, `getJob`, …) |
+| `esx_call_shared({ method, args? })` | Reflective `ESX.<method>(...args)` |
+| `esx_call_player({ serverId, method, args? })` | Reflective `xPlayer.<method>(...args)` |
+
+## Gated tools (require `agent_api_readonly=false`)
+
+| Tool | Behaviour |
+| --- | --- |
+| `esx_add_money({ serverId, amount, account? })` | Pass `account` = `cash` / `bank` / `black_money`. Negative amount removes |
+| `esx_set_job({ serverId, job, grade })` | Assign |
+
+## Reflective examples
+
+```json
+// Get every method available on a specific xPlayer
+esx_list_player_methods({ serverId: 1 })
+// → { methods: ["addAccountMoney", "addInventoryItem", ..., "triggerEvent"] }
+
+// Read inventory
+esx_call_player({ serverId: 1, method: "getInventory" })
+// → { result: [{ name, count, label, weight, ... }, ...] }
+
+// Set someone's coords through ESX
+esx_call_player({ serverId: 1, method: "setCoords", args: [{ x: 0, y: 0, z: 73 }] })
+// → returns the snapshot
+```
+
+## Convars
+
+```ini
+set agent_api_plugin_esx_enabled         auto    # auto | true | false
+set agent_api_plugin_esx_blocked_methods ""      # csv of method names to refuse on reflective calls
+```
+
+## Compatibility notes
+
+- Targets the standard ESX Legacy API (`getSharedObject`, `GetPlayerFromId`, `getInventory`, etc.). Older non-Legacy forks may not expose the same surface.
+- The reflective tools call methods directly on the live xPlayer object — if your fork has renamed methods, use `esx_list_player_methods` to discover the correct name first.

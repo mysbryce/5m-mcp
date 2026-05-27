@@ -1,0 +1,47 @@
+---
+title: ACE permissions
+description: Why agent_api needs FiveM ACEs for lifecycle commands and which ones to grant.
+---
+
+FiveM gates console commands behind ACEs (Access Control Entries). When `agent_api` calls `ExecuteCommand("ensure foo")`, FiveM checks whether the **agent_api resource itself** has permission to run `ensure`. By default it does not.
+
+If you skip this step, every lifecycle call will log:
+
+```
+[cmd] Access denied for command ensure.
+```
+
+## Required ACEs
+
+Add to `server.cfg` and restart the server (`refresh` is not enough for ACEs):
+
+```ini
+add_ace resource.agent_api command.ensure  allow
+add_ace resource.agent_api command.start   allow
+add_ace resource.agent_api command.stop    allow
+add_ace resource.agent_api command.restart allow
+add_ace resource.agent_api command.refresh allow
+add_ace resource.agent_api command.say     allow
+```
+
+## Looser variant
+
+If maintaining six lines feels tedious and you trust the agent_api resource fully, grant every command:
+
+```ini
+add_ace resource.agent_api command allow
+```
+
+Tradeoff: agent_api can now invoke any console command via `run_command`, including ones we don't expose (because the `run_command` allowlist is independent of FiveM's ACE — but if you later widen the agent_api allowlist, your blast radius is bigger).
+
+## Other ACEs you might want
+
+These are not required by default but make sense if you grow the resource:
+
+| ACE | When you'd add it |
+| --- | --- |
+| `command.kick allow` | If you add a tool that calls FiveM's `kick` |
+| `command.acl allow` | If you add ACL management tools |
+| `webadmin allow` | If you expose admin endpoints |
+
+`agent_api` ships with **none** of these enabled and refuses to add `add_ace` itself — only the operator (you) can change permissions.

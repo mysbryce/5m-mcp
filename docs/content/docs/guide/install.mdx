@@ -1,0 +1,108 @@
+---
+title: Install on a server
+description: Drop the resource into a FiveM server, generate a token, grant ACE rights, smoke check.
+---
+
+## Distribution paths
+
+There are three ways to install `agent_api` on a FiveM server.
+
+### A. Drop-in folder (recommended for production)
+
+Build a clean folder once, copy it anywhere.
+
+```sh
+git clone https://github.com/mysbryce/5m-mcp.git
+cd 5m-mcp
+npm install
+npm run generate:resource
+# → out/agent_api/   (no node_modules, no src/, no dev cruft)
+```
+
+Then copy `out/agent_api/` into your FiveM server's `resources/[agent]/agent_api/`.
+
+The drop-in folder contains:
+- `fxmanifest.lua`
+- `dist/server.js`, `dist/client.js`, `dist/mcp-stdio.js`, `dist/screenshot-nui.js`
+- `README.md`
+
+Total size: ~400 KB.
+
+### B. Symlink (dev loop)
+
+If you're hacking on `agent_api` itself, junction the repo into the server so `restart agent_api` always picks up the latest `dist/*.js`.
+
+```powershell
+pwsh -File scripts/dev-link.ps1 -ServerRoot <txData base>
+```
+
+The script needs no admin rights — it uses NTFS junctions, not symlinks. After running, `npm run watch` in the repo rebuilds `dist/` on save; `restart agent_api` in FiveM picks up the change.
+
+### C. Git clone inside the resources folder
+
+Functionally the same as B but without the junction layer. Make sure `node_modules` and `dist/` exist (`npm install && npm run build`).
+
+## First start
+
+In the FiveM server console:
+
+```
+refresh
+ensure agent_api
+```
+
+The resource auto-generates a token on first start. Look for the banner:
+
+```
+[agent_api] No token configured. Generated new token.
+[agent_api] Saved to: dist/.agent_token
+```
+
+The token is persisted to `dist/.agent_token` (mode 0600 on POSIX). On subsequent starts it's loaded silently.
+
+If you'd rather pin the token, set the convar before first start:
+
+```ini
+set agent_api_token "your-pre-shared-token"
+```
+
+## ACE permissions
+
+Lifecycle commands (`ensure/start/stop/restart/refresh/say`) need ACE rights for the resource:
+
+```ini
+add_ace resource.agent_api command.ensure  allow
+add_ace resource.agent_api command.start   allow
+add_ace resource.agent_api command.stop    allow
+add_ace resource.agent_api command.restart allow
+add_ace resource.agent_api command.refresh allow
+add_ace resource.agent_api command.say     allow
+```
+
+To open every command (looser, simpler):
+
+```ini
+add_ace resource.agent_api command allow
+```
+
+## Optional: NUI screenshots
+
+`screenshot_nui` connects to FiveM's CEF DevTools (port 13172) over WebSocket. **No separate browser install required** — we attach to the running CEF, no headless Chrome involved.
+
+The port is opened by default. If you've changed it, pass `cdpUrl` to the tool call.
+
+## Optional: shell commands
+
+`run_shell` lets the agent execute `npm`, `npx`, `pnpm`, `yarn`, `bun`, `vite`, `git`, or `node` inside a resource folder. The binaries must be on the server host's PATH.
+
+For `npm create vite` in particular, ensure your Node install includes `npx` (it does by default).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `[cmd] Access denied for command ensure` | ACE not granted | add the `add_ace` lines above to `server.cfg`, restart |
+| `screenshot_nui` returns `cannot reach CDP at http://localhost:13172` | no FiveM client connected; FXServer instance has no CEF | start the FiveM client and connect |
+| `RESOURCE_NOT_FOUND` after `create_resource` | folder created but FiveM hasn't re-scanned | call `refresh_resources` between `create_resource` and `write_file` |
+| `PATH_OUTSIDE_SANDBOX` on a fresh write | write root convar doesn't match the target resource's path | set `agent_api_allow_write_paths` to a CSV including the parent folder, or move the resource under `resources/[agent]/` |
+| Server SIGSEGV after `ensure_resource agent_api` | hit a known FiveM Mono race | the self-target guard now refuses this — update to the latest build |

@@ -3,8 +3,11 @@ dist/.agent_token
 dist/audit.log
 dist/screenshots/
 out/
-docs/.vitepress/dist/
-docs/.vitepress/cache/
+docs/.next/
+docs/.source/
+docs/out/
+docs/node_modules/
+docs/next-env.d.ts
 *.log
 .DS_Store
 .idea/

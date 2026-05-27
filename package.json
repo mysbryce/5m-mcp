@@ -34,10 +34,10 @@
     "smoke": "node scripts/smoke.mjs",
     "smoke:stdio": "node scripts/smoke-stdio.mjs",
     "generate:resource": "node scripts/generate-resource.mjs",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs",
-    "docs:deploy": "vitepress build docs && gh-pages -d docs/.vitepress/dist --dotfiles"
+    "docs:install": "cd docs && npm install",
+    "docs:dev": "cd docs && npm run dev",
+    "docs:build": "cd docs && npm run build",
+    "docs:deploy": "npm run docs:build && gh-pages -d docs/out --dotfiles -t"
   },
   "devDependencies": {
     "@citizenfx/client": "^2.0.29753-1",
@@ -47,8 +47,7 @@
     "gh-pages": "^6.3.0",
     "oxfmt": "^0.52.0",
     "oxlint": "^1.67.0",
-    "typescript": "^5.4.5",
-    "vitepress": "^1.6.4"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "@overextended/ox_lib": "^3.35.0",

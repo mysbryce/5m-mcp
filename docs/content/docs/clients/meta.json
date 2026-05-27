@@ -1,0 +1,11 @@
+{
+  "title": "Clients",
+  "pages": [
+    "claude-code",
+    "claude-code-stdio",
+    "codex",
+    "cursor",
+    "others",
+    "custom"
+  ]
+}
