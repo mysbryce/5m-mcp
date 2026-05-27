@@ -7296,6 +7296,17 @@ function registerClientListNatives() {
 
 // src/server/tools/serverNative.ts
 var READ_PREFIXES2 = ["Get", "Has", "Is", "Does", "Can", "Will", "Network"];
+var DEFAULT_DANGER_BLOCKLIST = /* @__PURE__ */ new Set([
+  "DropPlayer",
+  "ExecuteCommand",
+  "StopResource",
+  "StartResource",
+  "ScheduleResourceTick",
+  "PrintStructuredTrace",
+  "CancelEvent",
+  "TempBanPlayer",
+  "BanPlayer"
+]);
 function isReadOnlyNative2(name) {
   return READ_PREFIXES2.some((p) => name.startsWith(p));
 }
@@ -7308,6 +7319,12 @@ var ListInput2 = external_exports.object({
   limit: external_exports.number().int().min(1).max(2e3).optional()
 }).strict();
 function callOnServer(native, args, ctx) {
+  if (DEFAULT_DANGER_BLOCKLIST.has(native)) {
+    return err(
+      "COMMAND_NOT_ALLOWED",
+      `server native ${native} is in the built-in danger list. To override, expose it through a dedicated tool with a narrower input schema.`
+    );
+  }
   if (ctx.blocklist.has(native)) {
     return err("COMMAND_NOT_ALLOWED", `server native ${native} is in the blocklist.`);
   }

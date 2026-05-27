@@ -6,6 +6,18 @@ import { csvSet, safeSerialize } from '../plugins/dynamic';
 
 const READ_PREFIXES = ['Get', 'Has', 'Is', 'Does', 'Can', 'Will', 'Network'];
 
+const DEFAULT_DANGER_BLOCKLIST = new Set([
+  'DropPlayer',
+  'ExecuteCommand',
+  'StopResource',
+  'StartResource',
+  'ScheduleResourceTick',
+  'PrintStructuredTrace',
+  'CancelEvent',
+  'TempBanPlayer',
+  'BanPlayer',
+]);
+
 function isReadOnlyNative(name: string): boolean {
   return READ_PREFIXES.some((p) => name.startsWith(p));
 }
@@ -31,6 +43,13 @@ function callOnServer(
   args: unknown[],
   ctx: { readonly: boolean; blocklist: Set<string> },
 ): Envelope<unknown> {
+  if (DEFAULT_DANGER_BLOCKLIST.has(native)) {
+    return err(
+      'COMMAND_NOT_ALLOWED',
+      `server native ${native} is in the built-in danger list. ` +
+        'To override, expose it through a dedicated tool with a narrower input schema.',
+    );
+  }
   if (ctx.blocklist.has(native)) {
     return err('COMMAND_NOT_ALLOWED', `server native ${native} is in the blocklist.`);
   }
