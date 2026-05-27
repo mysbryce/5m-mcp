@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import * as oxLibServer from '@overextended/ox_lib/server';
 import { triggerClientCallback, versionCheck } from '@overextended/ox_lib/server';
-import { err, ok } from '../../util/envelope';
+import { Envelope, err, ok } from '../../util/envelope';
 import { Plugin } from '../types';
 import { isResourceStarted } from '../helpers';
+import { csvSet, isAllowed, safeSerialize } from '../dynamic';
 
 const RESOURCE = 'ox_lib';
 
@@ -43,7 +45,7 @@ export const oxLibPlugin: Plugin = {
   name: 'oxlib',
   description: 'ox_lib bridge — notifications, client callbacks, version check.',
   detect: () => isResourceStarted(RESOURCE),
-  install: ({ register }) => {
+  install: ({ register, convars }) => {
     register({
       name: 'oxlib_notify',
       description: 'Trigger an ox_lib UI notification on one player.',
@@ -99,6 +101,65 @@ export const oxLibPlugin: Plugin = {
         try {
           versionCheck(`${input.resource}@${input.minVersion}`);
           return ok({ checked: true });
+        } catch (e) {
+          return err('INTERNAL', e instanceof Error ? e.message : String(e));
+        }
+      },
+    });
+
+    register({
+      name: 'oxlib_list_methods',
+      description:
+        'List every exported function from @overextended/ox_lib/server — use before oxlib_call.',
+      input: z.object({}).strict(),
+      handler: async () => {
+        const fns: string[] = [];
+        const ns: string[] = [];
+        for (const k of Object.keys(oxLibServer)) {
+          const v = (oxLibServer as Record<string, unknown>)[k];
+          if (typeof v === 'function') fns.push(k);
+          else if (v !== null && typeof v === 'object') ns.push(k);
+        }
+        return ok({ methods: fns.toSorted(), namespaces: ns.toSorted() });
+      },
+    });
+
+    const blocklist = csvSet('agent_api_plugin_oxlib_blocked_methods');
+
+    register({
+      name: 'oxlib_call',
+      description:
+        'Call any exported function from @overextended/ox_lib/server dynamically. ' +
+        'Pass a dotted path (e.g. "addAce" or "cache.serverId") and arguments. ' +
+        'Read-only verbs always allowed; mutating verbs require agent_api_readonly=false.',
+      input: z
+        .object({
+          path: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_.]*$/),
+          args: z.array(z.unknown()).optional(),
+        })
+        .strict(),
+      handler: async (input: { path: string; args?: unknown[] }): Promise<Envelope<unknown>> => {
+        const parts = input.path.split('.');
+        const leaf = parts.at(-1) ?? input.path;
+        const guard = isAllowed(leaf, { readonly: convars.readonly, blocklist });
+        if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
+
+        let target: unknown = oxLibServer;
+        for (let i = 0; i < parts.length - 1; i++) {
+          target = (target as Record<string, unknown>)[parts[i]!];
+          if (target == null) {
+            return err('INVALID_INPUT', `ox_lib path segment not found: ${parts[i]}`);
+          }
+        }
+        const fnOrValue = (target as Record<string, unknown>)[leaf];
+        if (typeof fnOrValue !== 'function') {
+          return ok({ path: input.path, kind: 'value', value: safeSerialize(fnOrValue) });
+        }
+        try {
+          const raw = await Promise.resolve(
+            (fnOrValue as Function).apply(target, input.args ?? []),
+          );
+          return ok({ path: input.path, kind: 'call', result: safeSerialize(raw) });
         } catch (e) {
           return err('INTERNAL', e instanceof Error ? e.message : String(e));
         }

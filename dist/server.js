@@ -32,8 +32,25 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// node_modules/@overextended/ox_lib/dist/_virtual/_rolldown/runtime.js
+var __defProp2, __exportAll;
+var init_runtime = __esm({
+  "node_modules/@overextended/ox_lib/dist/_virtual/_rolldown/runtime.js"() {
+    __defProp2 = Object.defineProperty;
+    __exportAll = (all, no_symbols) => {
+      let target = {};
+      for (var name in all) __defProp2(target, name, {
+        get: all[name],
+        enumerable: true
+      });
+      if (!no_symbols) __defProp2(target, Symbol.toStringTag, { value: "Module" });
+      return target;
+    };
+  }
+});
+
 // node_modules/@overextended/ox_lib/dist/common/cache/index.js
-var cacheEvents, cache;
+var cacheEvents, cache, onCache;
 var init_cache = __esm({
   "node_modules/@overextended/ox_lib/dist/common/cache/index.js"() {
     cacheEvents = {};
@@ -52,6 +69,269 @@ var init_cache = __esm({
       target[key] = exports.ox_lib.cache(key) || false;
       return target[key];
     } });
+    onCache = (key, cb) => {
+      if (!cacheEvents[key]) cache[key];
+      cacheEvents[key].push(cb);
+    };
+  }
+});
+
+// node_modules/@overextended/ox_lib/dist/client/callback/index.js
+var callback_exports = {};
+__export(callback_exports, {
+  eventTimer: () => eventTimer,
+  onServerCallback: () => onServerCallback,
+  triggerServerCallback: () => triggerServerCallback
+});
+function eventTimer(eventName, delay) {
+  if (delay && delay > 0) {
+    const currentTime = GetGameTimer();
+    if ((eventTimers[eventName] || 0) > currentTime) return false;
+    eventTimers[eventName] = currentTime + delay;
+  }
+  return true;
+}
+function triggerServerCallback(eventName, delay, ...args) {
+  if (!eventTimer(eventName, delay)) return;
+  let key;
+  do
+    key = `${eventName}:${Math.floor(Math.random() * 100001)}`;
+  while (pendingCallbacks[key]);
+  emitNet(`ox_lib:validateCallback`, eventName, cache.resource, key);
+  emitNet(`__ox_cb_${eventName}`, cache.resource, key, ...args);
+  return new Promise((resolve2, reject) => {
+    pendingCallbacks[key] = (args2) => {
+      if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
+      resolve2(args2);
+    };
+    setTimeout(reject, callbackTimeout, `callback event '${key}' timed out`);
+  });
+}
+function onServerCallback(eventName, cb) {
+  exports.ox_lib.setValidCallback(eventName, true);
+  onNet(`__ox_cb_${eventName}`, async (resource, key, ...args) => {
+    let response;
+    try {
+      response = await cb(...args);
+    } catch (e) {
+      console.error(`an error occurred while handling callback event ${eventName}`);
+      console.log(`^3${e.stack}^0`);
+    }
+    emitNet(`__ox_cb_${resource}`, key, response);
+  });
+}
+var pendingCallbacks, callbackTimeout, eventTimers;
+var init_callback = __esm({
+  "node_modules/@overextended/ox_lib/dist/client/callback/index.js"() {
+    init_cache();
+    pendingCallbacks = {};
+    callbackTimeout = GetConvarInt("ox:callbackTimeout", 3e5);
+    onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
+      if (!source) return;
+      const resolve2 = pendingCallbacks[key];
+      if (!resolve2) return;
+      delete pendingCallbacks[key];
+      resolve2(...args);
+    });
+    eventTimers = {};
+  }
+});
+
+// node_modules/fast-printf/dist/src/boolean.js
+var require_boolean = __commonJS({
+  "node_modules/fast-printf/dist/src/boolean.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.boolean = void 0;
+    var boolean = function(value) {
+      switch (Object.prototype.toString.call(value)) {
+        case "[object String]":
+          return ["true", "t", "yes", "y", "on", "1"].includes(value.trim().toLowerCase());
+        case "[object Number]":
+          return value.valueOf() === 1;
+        case "[object Boolean]":
+          return value.valueOf();
+        default:
+          return false;
+      }
+    };
+    exports2.boolean = boolean;
+  }
+});
+
+// node_modules/fast-printf/dist/src/tokenize.js
+var require_tokenize = __commonJS({
+  "node_modules/fast-printf/dist/src/tokenize.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.tokenize = void 0;
+    var TokenRule = /(?:%(?<flag>([+0-]|-\+))?(?<width>\d+)?(?<position>\d+\$)?(?<precision>\.\d+)?(?<conversion>[%BCESb-iosux]))|(\\%)/g;
+    var tokenize = (subject) => {
+      let matchResult;
+      const tokens = [];
+      let argumentIndex = 0;
+      let lastIndex = 0;
+      let lastToken = null;
+      while ((matchResult = TokenRule.exec(subject)) !== null) {
+        if (matchResult.index > lastIndex) {
+          lastToken = {
+            literal: subject.slice(lastIndex, matchResult.index),
+            type: "literal"
+          };
+          tokens.push(lastToken);
+        }
+        const match = matchResult[0];
+        lastIndex = matchResult.index + match.length;
+        if (match === "\\%" || match === "%%") {
+          if (lastToken && lastToken.type === "literal") {
+            lastToken.literal += "%";
+          } else {
+            lastToken = {
+              literal: "%",
+              type: "literal"
+            };
+            tokens.push(lastToken);
+          }
+        } else if (matchResult.groups) {
+          lastToken = {
+            conversion: matchResult.groups.conversion,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional per @gajus
+            flag: matchResult.groups.flag || null,
+            placeholder: match,
+            position: matchResult.groups.position ? Number.parseInt(matchResult.groups.position, 10) - 1 : argumentIndex++,
+            precision: matchResult.groups.precision ? Number.parseInt(matchResult.groups.precision.slice(1), 10) : null,
+            type: "placeholder",
+            width: matchResult.groups.width ? Number.parseInt(matchResult.groups.width, 10) : null
+          };
+          tokens.push(lastToken);
+        }
+      }
+      if (lastIndex <= subject.length - 1) {
+        if (lastToken && lastToken.type === "literal") {
+          lastToken.literal += subject.slice(lastIndex);
+        } else {
+          tokens.push({
+            literal: subject.slice(lastIndex),
+            type: "literal"
+          });
+        }
+      }
+      return tokens;
+    };
+    exports2.tokenize = tokenize;
+  }
+});
+
+// node_modules/fast-printf/dist/src/createPrintf.js
+var require_createPrintf = __commonJS({
+  "node_modules/fast-printf/dist/src/createPrintf.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.createPrintf = void 0;
+    var boolean_1 = require_boolean();
+    var tokenize_1 = require_tokenize();
+    var formatDefaultUnboundExpression = (_subject, token) => {
+      return token.placeholder;
+    };
+    var createPrintf = (configuration) => {
+      var _a;
+      const padValue = (value, width, flag) => {
+        if (flag === "-") {
+          return value.padEnd(width, " ");
+        } else if (flag === "-+") {
+          return ((Number(value) >= 0 ? "+" : "") + value).padEnd(width, " ");
+        } else if (flag === "+") {
+          return ((Number(value) >= 0 ? "+" : "") + value).padStart(width, " ");
+        } else if (flag === "0") {
+          return value.padStart(width, "0");
+        } else {
+          return value.padStart(width, " ");
+        }
+      };
+      const formatUnboundExpression = (_a = configuration === null || configuration === void 0 ? void 0 : configuration.formatUnboundExpression) !== null && _a !== void 0 ? _a : formatDefaultUnboundExpression;
+      const cache2 = {};
+      return (subject, ...boundValues) => {
+        let tokens = cache2[subject];
+        if (!tokens) {
+          tokens = cache2[subject] = (0, tokenize_1.tokenize)(subject);
+        }
+        let result = "";
+        for (const token of tokens) {
+          if (token.type === "literal") {
+            result += token.literal;
+          } else {
+            let boundValue = boundValues[token.position];
+            if (boundValue === void 0) {
+              result += formatUnboundExpression(subject, token, boundValues);
+            } else if (token.conversion === "b") {
+              result += (0, boolean_1.boolean)(boundValue) ? "true" : "false";
+            } else if (token.conversion === "B") {
+              result += (0, boolean_1.boolean)(boundValue) ? "TRUE" : "FALSE";
+            } else if (token.conversion === "c") {
+              result += boundValue;
+            } else if (token.conversion === "C") {
+              result += String(boundValue).toUpperCase();
+            } else if (token.conversion === "i" || token.conversion === "d") {
+              boundValue = String(Math.trunc(boundValue));
+              if (token.width !== null) {
+                boundValue = padValue(boundValue, token.width, token.flag);
+              }
+              result += boundValue;
+            } else if (token.conversion === "e") {
+              result += Number(boundValue).toExponential();
+            } else if (token.conversion === "E") {
+              result += Number(boundValue).toExponential().toUpperCase();
+            } else if (token.conversion === "f") {
+              if (token.precision !== null) {
+                boundValue = Number(boundValue).toFixed(token.precision);
+              }
+              if (token.width !== null) {
+                boundValue = padValue(String(boundValue), token.width, token.flag);
+              }
+              result += boundValue;
+            } else if (token.conversion === "o") {
+              result += (Number.parseInt(String(boundValue), 10) >>> 0).toString(8);
+            } else if (token.conversion === "s") {
+              if (token.width !== null) {
+                boundValue = padValue(String(boundValue), token.width, token.flag);
+              }
+              result += boundValue;
+            } else if (token.conversion === "S") {
+              if (token.width !== null) {
+                boundValue = padValue(String(boundValue), token.width, token.flag);
+              }
+              result += String(boundValue).toUpperCase();
+            } else if (token.conversion === "u") {
+              result += Number.parseInt(String(boundValue), 10) >>> 0;
+            } else if (token.conversion === "x") {
+              boundValue = (Number.parseInt(String(boundValue), 10) >>> 0).toString(16);
+              if (token.width !== null) {
+                boundValue = padValue(String(boundValue), token.width, token.flag);
+              }
+              result += boundValue;
+            } else {
+              throw new Error("Unknown format specifier.");
+            }
+          }
+        }
+        return result;
+      };
+    };
+    exports2.createPrintf = createPrintf;
+  }
+});
+
+// node_modules/fast-printf/dist/src/printf.js
+var require_printf = __commonJS({
+  "node_modules/fast-printf/dist/src/printf.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.printf = exports2.createPrintf = void 0;
+    var createPrintf_1 = require_createPrintf();
+    Object.defineProperty(exports2, "createPrintf", { enumerable: true, get: function() {
+      return createPrintf_1.createPrintf;
+    } });
+    exports2.printf = (0, createPrintf_1.createPrintf)();
   }
 });
 
@@ -7056,6 +7336,107 @@ function callExport(resource, name, args) {
   }
 }
 
+// src/server/plugins/dynamic.ts
+var READ_VERBS = ["get", "is", "has", "list", "find", "count", "show", "fetch", "read", "check"];
+var WRITE_VERBS = [
+  "set",
+  "add",
+  "remove",
+  "update",
+  "delete",
+  "create",
+  "do",
+  "trigger",
+  "kick",
+  "ban",
+  "give",
+  "take",
+  "spawn",
+  "register",
+  "unregister",
+  "save",
+  "reset",
+  "clear",
+  "send",
+  "enable",
+  "disable"
+];
+function classifyMethod(name) {
+  const lower = name.toLowerCase();
+  for (const v of READ_VERBS) if (lower.startsWith(v)) return "read";
+  for (const v of WRITE_VERBS) if (lower.startsWith(v)) return "write";
+  return "unknown";
+}
+function isAllowed(name, ctx) {
+  if (ctx.blocklist.has(name)) {
+    return { ok: false, reason: `${name} is in the blocklist.` };
+  }
+  if (ctx.readonly) {
+    const cls = classifyMethod(name);
+    if (cls !== "read") {
+      return {
+        ok: false,
+        reason: `agent_api_readonly is true; only getter-style methods are allowed (got ${cls}).`
+      };
+    }
+  }
+  return { ok: true };
+}
+function listCallable(obj) {
+  if (!obj || typeof obj !== "object" && typeof obj !== "function") return [];
+  const names = /* @__PURE__ */ new Set();
+  for (const k of Object.keys(obj)) {
+    if (typeof obj[k] === "function") names.add(k);
+  }
+  const proto = Object.getPrototypeOf(obj);
+  if (proto && proto !== Object.prototype) {
+    for (const k of Object.getOwnPropertyNames(proto)) {
+      if (k === "constructor") continue;
+      const v = obj[k];
+      if (typeof v === "function") names.add(k);
+    }
+  }
+  return [...names].toSorted();
+}
+var MAX_DEPTH = 6;
+var MAX_ARRAY = 500;
+var MAX_KEYS = 200;
+function safeSerialize(value, depth = 0, seen = /* @__PURE__ */ new WeakSet()) {
+  if (value === null || value === void 0) return value;
+  const t = typeof value;
+  if (t === "function") {
+    const fn = value;
+    return `[Function: ${fn.name || "anonymous"}]`;
+  }
+  if (t === "bigint") return String(value);
+  if (t === "symbol") return String(value);
+  if (t !== "object") return value;
+  if (depth > MAX_DEPTH) return "[depth-cap]";
+  if (seen.has(value)) return "[circular]";
+  seen.add(value);
+  if (Array.isArray(value)) {
+    const out2 = value.slice(0, MAX_ARRAY).map((v) => safeSerialize(v, depth + 1, seen));
+    if (value.length > MAX_ARRAY) out2.push(`[+${value.length - MAX_ARRAY} more]`);
+    return out2;
+  }
+  const obj = value;
+  const out = {};
+  let count = 0;
+  for (const k of Object.keys(obj)) {
+    if (count++ >= MAX_KEYS) {
+      out["__truncated__"] = `(${Object.keys(obj).length - MAX_KEYS} more keys)`;
+      break;
+    }
+    out[k] = safeSerialize(obj[k], depth + 1, seen);
+  }
+  return out;
+}
+function csvSet(name) {
+  return new Set(
+    GetConvar(name, "").split(",").map((s) => s.trim()).filter(Boolean)
+  );
+}
+
 // src/server/plugins/esx/index.ts
 var RESOURCE = "es_extended";
 var cachedEsx = null;
@@ -7155,37 +7536,1881 @@ var esxPlugin = {
         return ok(snapshot(p));
       }
     });
+    register2({
+      name: "esx_list_shared_methods",
+      description: "Discover every callable method on the ESX shared object \u2014 use before esx_call_shared.",
+      input: external_exports.object({}).strict(),
+      handler: async () => {
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        return ok({ methods: listCallable(esx) });
+      }
+    });
+    register2({
+      name: "esx_list_player_methods",
+      description: "Discover every callable method on an xPlayer (e.g. getInventory, getJob, addMoney).",
+      input: external_exports.object({ serverId: external_exports.number().int().min(1) }).strict(),
+      handler: async (input) => {
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const p = esx.GetPlayerFromId(input.serverId);
+        if (!p) return err("PLAYER_NOT_FOUND", `serverId ${input.serverId} not found.`);
+        return ok({ serverId: input.serverId, methods: listCallable(p) });
+      }
+    });
+    const blocklist = csvSet("agent_api_plugin_esx_blocked_methods");
+    register2({
+      name: "esx_call_shared",
+      description: "Call any method on the ESX shared object dynamically. Read-only methods (get/is/has/list/find/count/...) are always allowed. Mutating methods require agent_api_readonly=false. Methods listed in agent_api_plugin_esx_blocked_methods are always denied.",
+      input: external_exports.object({
+        method: external_exports.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+        args: external_exports.array(external_exports.unknown()).optional()
+      }).strict(),
+      handler: async (input) => {
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const guard = isAllowed(input.method, { readonly: convars.readonly, blocklist });
+        if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
+        const fn = esx[input.method];
+        if (typeof fn !== "function") {
+          return err(
+            "INVALID_INPUT",
+            `ESX.${input.method} is not a function on the shared object.`
+          );
+        }
+        try {
+          const raw = await Promise.resolve(fn.apply(esx, input.args ?? []));
+          return ok({ method: input.method, result: safeSerialize(raw) });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+    register2({
+      name: "esx_call_player",
+      description: "Call any method on one xPlayer dynamically (e.g. getInventory, getAccount, setJob). Same read/write gating as esx_call_shared.",
+      input: external_exports.object({
+        serverId: external_exports.number().int().min(1),
+        method: external_exports.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+        args: external_exports.array(external_exports.unknown()).optional()
+      }).strict(),
+      handler: async (input) => {
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const player = esx.GetPlayerFromId(input.serverId);
+        if (!player) {
+          return err("PLAYER_NOT_FOUND", `serverId ${input.serverId} not found.`);
+        }
+        const guard = isAllowed(input.method, { readonly: convars.readonly, blocklist });
+        if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
+        const fn = player[input.method];
+        if (typeof fn !== "function") {
+          return err(
+            "INVALID_INPUT",
+            `xPlayer.${input.method} is not a function on player ${input.serverId}.`
+          );
+        }
+        try {
+          const raw = await Promise.resolve(fn.apply(player, input.args ?? []));
+          return ok({
+            serverId: input.serverId,
+            method: input.method,
+            result: safeSerialize(raw)
+          });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
   }
 };
 
+// node_modules/@overextended/ox_lib/dist/server/index.js
+var server_exports = {};
+__export(server_exports, {
+  GameEntity: () => GameEntity,
+  HookPipeline: () => HookPipeline,
+  Ped: () => Ped,
+  Player: () => Player,
+  Prop: () => Prop,
+  StateBag: () => StateBag,
+  Vehicle: () => Vehicle,
+  Zone: () => Zone,
+  addAce: () => addAce,
+  addCommand: () => addCommand,
+  addPrincipal: () => addPrincipal,
+  cache: () => cache,
+  checkDependency: () => checkDependency,
+  context: () => context,
+  createLocales: () => createLocales,
+  createObject: () => createObject,
+  createPed: () => createPed,
+  createVehicle: () => createVehicle,
+  getLocale: () => getLocale,
+  getLocales: () => getLocales,
+  getNearbyVehicles: () => getNearbyVehicles,
+  getRandomAlphanumeric: () => getRandomAlphanumeric,
+  getRandomChar: () => getRandomChar,
+  getRandomInt: () => getRandomInt,
+  getRandomString: () => getRandomString,
+  getServerLocale: () => getServerLocale,
+  initLocale: () => initLocale,
+  lib: () => server_exports2,
+  locale: () => locale,
+  onCache: () => onCache,
+  onClientCallback: () => onClientCallback,
+  registerHook: () => registerHook,
+  removeAce: () => removeAce,
+  removePrincipal: () => removePrincipal,
+  setVehicleProperties: () => setVehicleProperties,
+  sleep: () => sleep3,
+  triggerClientCallback: () => triggerClientCallback,
+  versionCheck: () => versionCheck,
+  waitFor: () => waitFor
+});
+init_runtime();
+init_cache();
+
+// node_modules/@overextended/ox_lib/dist/common/game/StateBag/index.js
+init_cache();
+var allowStateBagReplication = cache.game === "fxserver" || !GetConvarBool("sv_stateBagStrictMode", false);
+var StateBag = class {
+  statebag;
+  constructor(statebag = "") {
+    this.statebag = statebag;
+  }
+  /** Writes a value to the statebag. Replicated values set from the client are send to the server for validation. */
+  async set(key, value, replicated = false) {
+    if (replicated && !allowStateBagReplication) return Promise.resolve().then(() => (init_callback(), callback_exports)).then((m) => m.triggerServerCallback("ox_lib:requestSetStateBag", null, this.statebag, key, value));
+    const packed = msgpack_pack(value);
+    SetStateBagValue(this.statebag, key, packed, packed.length, replicated);
+    return true;
+  }
+  /** Returns a value from the statebag. */
+  get(key) {
+    return GetStateBagValue(this.statebag, key);
+  }
+  /** Returns if a key exists on the statebag. */
+  has(key) {
+    return !!StateBagHasKey(this.statebag, key);
+  }
+  /** Returns an array of all keys on the statebag. */
+  keys() {
+    return GetStateBagKeys(this.statebag);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/misc.js
+var context = IsDuplicityVersion() ? "server" : "client";
+function sleep3(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms, null));
+}
+async function waitFor(cb, errMessage, timeout) {
+  let value = await cb();
+  if (value !== void 0) return value;
+  if (timeout || timeout == null) {
+    if (typeof timeout !== "number") timeout = 1e3;
+  }
+  const start = GetGameTimer();
+  let id;
+  return new Promise((resolve2, reject) => {
+    id = setTick(async () => {
+      const elapsed = timeout && GetGameTimer() - start;
+      if (elapsed && elapsed > timeout) return reject(`${errMessage || "failed to resolve callback"} (waited ${elapsed}ms)`);
+      value = await cb();
+      if (value !== void 0) resolve2(value);
+    });
+  }).finally(() => clearTick(id));
+}
+function getRandomInt(min = 0, max = 9) {
+  if (min > max) [min, max] = [max, min];
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function getRandomChar(lowercase) {
+  const str = String.fromCharCode(getRandomInt(65, 90));
+  return lowercase ? str.toLowerCase() : str;
+}
+function getRandomAlphanumeric(lowercase) {
+  return Math.random() > 0.5 ? getRandomChar(lowercase) : getRandomInt();
+}
+var formatChar = {
+  "1": getRandomInt,
+  A: getRandomChar,
+  ".": getRandomAlphanumeric,
+  a: getRandomChar
+};
+function getRandomString(pattern, length) {
+  const len = length || pattern.replace(/\^/g, "").length;
+  const arr = Array(len).fill(0);
+  let size = 0;
+  let i = 0;
+  while (size < len) {
+    i += 1;
+    let char = pattern.charAt(i - 1);
+    if (char === "") {
+      arr[size] = " ".repeat(len - size);
+      break;
+    } else if (char === "^") {
+      i += 1;
+      char = pattern.charAt(i - 1);
+    } else {
+      const fn = formatChar[char];
+      char = fn ? fn(char === "a") : char;
+    }
+    size += 1;
+    arr[size - 1] = char;
+  }
+  return arr.join("");
+}
+
+// node_modules/@overextended/core/dist/math.js
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+// node_modules/@overextended/core/dist/vector.js
+var Vector = class _Vector {
+  static size;
+  static keys;
+  /**
+   * Constructs a new vector with optional components.
+   *
+   * @param x - The x-component of the vector.
+   * @param y - The y-component of the vector. Defaults to `x` if not provided.
+   * @param z - The z-component of the vector (optional).
+   * @param w - The w-component of the vector (optional).
+   */
+  constructor(...args) {
+    for (let i = 0; i < this.size; i++) {
+      if (typeof args[i] !== "number") {
+        throw new TypeError(`${this.constructor.name} argument at index ${i} must be a number, but got ${typeof args[i]}`);
+      }
+    }
+  }
+  get size() {
+    return this.constructor.size;
+  }
+  /**
+   * Creates a vector from an array of numbers.
+   *
+   * @param primitive - An array representing the components of a vector.
+   * @returns A new vector instance corresponding to the provided array length.
+   */
+  static fromArray(primitive) {
+    const [x, y, z, w] = primitive;
+    return new this(x, y, z, w);
+  }
+  /**
+   * Creates a vector from a number, array, or object.
+   *
+   * @param primitive - A number, array, or object with vector-like components.
+   * @returns A new vector instance corresponding to the input.
+   */
+  static fromInput(primitive) {
+    if (typeof primitive === "number")
+      return new this(primitive, primitive, primitive, primitive);
+    if (Array.isArray(primitive))
+      return this.fromArray(primitive);
+    const { x, y, z, w } = primitive;
+    return new this(x, y, z, w);
+  }
+  /**
+   * Converts a list of component arrays into an array of vector instances.
+   *
+   * @param primitives - An array of number arrays representing multiple vectors.
+   * @returns An array of vector instances.
+   */
+  static fromArrays(primitives) {
+    return primitives.map(this.fromArray);
+  }
+  /**
+   * Applies a mathematical operation to each component of the vector.
+   *
+   * @param v The other vector or scalar to operate with.
+   * @param operator - A function that defines the operation to apply.
+   * @returns A reference to the vector.
+   */
+  operate(v, operator) {
+    const vec = this.constructor === v.constructor ? v : this.constructor.fromInput(v);
+    this.x = operator(this.x, vec.x);
+    this.y = operator(this.y, vec.y);
+    if (this.size > 2)
+      this.z = operator(this.z, vec.z);
+    if (this.size > 3)
+      this.w = operator(this.w, vec.w);
+    return this;
+  }
+  /**
+   * Adds the components of the vector by the components of another vector or scalar value.
+   * @param v The target vector or scalar value.
+   * @returns A reference to the vector.
+   */
+  add(v) {
+    return this.operate(v, (x, y) => x + y);
+  }
+  /**
+   * Subtracts the components of the vector by the components of another vector or scalar value.
+   * @param v The target vector or scalar value.
+   * @returns A reference to the vector.
+   */
+  subtract(v) {
+    return this.operate(v, (x, y) => x - y);
+  }
+  /**
+   * Multiplies the components of the vector by the components of another vector or scalar value.
+   * @param v The target vector or scalar value.
+   * @returns A reference to the vector.
+   */
+  multiply(v) {
+    return this.operate(v, (x, y) => x * y);
+  }
+  /**
+   * Divides the components of the vector by the components of another vector or scalar value.
+   * @param v The target vector or scalar vector.
+   * @returns A reference to the vector.
+   */
+  divide(v) {
+    return this.operate(v, (x, y) => x / y);
+  }
+  /**
+   * Linearly interpolates each component of the vector towards another vector or scalar value.
+   * @param v The target vector or scalar value.
+   * @param factor The interpolation factor, typically between 0 and 1.
+   * @returns A reference to the vector.
+   */
+  lerp(v, factor) {
+    return this.operate(v, (a, b) => a + (b - a) * factor);
+  }
+  /**
+   * Computes the dot product of this vector and another.
+   *
+   * @param v The vector to perform the dot product with.
+   * @returns The scalar dot product value.
+   */
+  dot(v) {
+    const vec = v instanceof _Vector ? v : this.constructor.fromInput(v);
+    if (this.size !== vec.size)
+      throw new Error("Vectors must have the same dimensions.");
+    return this.x * vec.x + this.y * vec.y + (this.size > 2 ? this.z * vec.z : 0) + (this.size > 3 ? this.w * vec.w : 0);
+  }
+  /**
+   * Returns a normalized copy of this vector with magnitude 1.
+   *
+   * @returns A normalized vector.
+   */
+  normalize() {
+    return this.divide(this.length());
+  }
+  /**
+   * Calculates the squared Euclidean length (magnitude) of this vector.
+   *
+   * @returns The magnitude of the vector.
+   */
+  lengthSquared() {
+    return this.x * this.x + this.y * this.y + (this.size > 2 ? this.z * this.z : 0) + (this.size > 3 ? this.w * this.w : 0);
+  }
+  /**
+   * Calculates the Euclidean length (magnitude) of this vector.
+   *
+   * @returns The magnitude of the vector.
+   */
+  length() {
+    return Math.sqrt(this.lengthSquared());
+  }
+  forEach(callback) {
+    const keys = this.constructor.keys;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      callback(this[key], key, i);
+    }
+  }
+  /**
+   * Returns a string representation of the vector, such as "vector3(1, 2, 3)".
+   */
+  toString() {
+    return `vector${this.size}(${this.toArray().join(", ")})`;
+  }
+  /**
+   * Creates a new vector with the same component values as this one.
+   *
+   * @returns A cloned vector.
+   */
+  clone() {
+    return this.constructor.fromInput(this);
+  }
+  /**
+   * Computes the squared Euclidean distance to another vector.
+   *
+   * @param v The vector to compute distance to.
+   * @returns The squared distance.
+   */
+  distanceSquared(v) {
+    const vec = v instanceof _Vector ? v : this.constructor.fromInput(v);
+    return (this.x - vec.x) ** 2 + (this.y - vec.y) ** 2 + (this.size > 2 ? (this.z - vec.z) ** 2 : 0) + (this.size > 3 ? (this.w - vec.w) ** 2 : 0);
+  }
+  /**
+   * Computes the Euclidean distance to another vector.
+   *
+   * @param v The vector to compute distance to.
+   * @returns The distance.
+   */
+  distance(v) {
+    return Math.sqrt(this.distanceSquared(v));
+  }
+  /**
+   * Converts the vector to an array of component values.
+   *
+   * @returns An array representing the vector.
+   */
+  toArray() {
+    return [...this];
+  }
+  /**
+   * Replaces the current vector's components with another vector's values.
+   *
+   * @param v The vector to copy components from.
+   * @returns A reference to the vector.
+   */
+  copy(v) {
+    return this.operate(v, (_, y) => y);
+  }
+  /**
+   * Creates a new vector by reordering or duplicating components using a swizzle string.
+   *
+   * @param components - A string like 'xy', 'zyx', or 'wzyx' specifying the desired component order.
+   * @returns A new vector based on the swizzle pattern.
+   */
+  swizzle(components) {
+    if (!/^[xyzw]+$/.test(components))
+      throw new Error(`Invalid key in swizzle components (${components}).`);
+    const arr = components.split("").map((char) => this[char] ?? 0);
+    return new this.constructor(...arr);
+  }
+  /**
+   * Compares this vector to another for exact component equality.
+   *
+   * @param v The vector to compare with.
+   * @returns `true` if all components are equal, otherwise `false`.
+   */
+  equals(v) {
+    if (this.size !== v.size)
+      return false;
+    const keys = this.constructor.keys;
+    for (const key of keys)
+      if (this[key] !== v[key])
+        return false;
+    return true;
+  }
+  /**
+   * Clamps a vector's components between the corresponding components of `min` and `max`.
+   * @param min A scalar or vector defining the minimum value for each component.
+   * @param max A scalar or vector defining the maximum value for each component.
+   * @returns A reference to the vector.
+   */
+  clamp(min, max) {
+    const minVec = typeof min === "number" || min instanceof _Vector ? min : this.constructor.fromInput(min);
+    const maxVec = typeof max === "number" || max instanceof _Vector ? max : this.constructor.fromInput(max);
+    const minIsNumber = typeof min === "number";
+    const maxIsNumber = typeof max === "number";
+    this.forEach((value, key) => {
+      const minValue = minIsNumber ? min : minVec[key];
+      const maxValue = maxIsNumber ? max : maxVec[key];
+      this[key] = clamp(value, minValue, maxValue);
+    });
+    return this;
+  }
+  /**
+   * Rounds the components of the vector up to the nearest integer.
+   * @returns A reference to the vector.
+   */
+  ceil() {
+    return this.operate(this, (x) => Math.ceil(x));
+  }
+  /**
+   * Rounds the components of the vector down to the nearest integer.
+   * @returns A reference to the vector.
+   */
+  floor() {
+    return this.operate(this, (x) => Math.floor(x));
+  }
+  /**
+   * Rounds the components of the vector to the nearest integer.
+   * @returns A reference to the vector.
+   */
+  round() {
+    return this.operate(this, (x) => Math.round(x));
+  }
+};
+var Vector2 = class _Vector2 extends Vector {
+  static size = 2;
+  static keys = ["x", "y"];
+  /**
+   * Constructs a new 2D vector.
+   * @param x The x-component of the vector.
+   * @param y The y-component of the vector.
+   */
+  constructor(x = 0, y = 0) {
+    super(x, y);
+    this.x = x;
+    this.y = y;
+  }
+  *[Symbol.iterator]() {
+    yield this.x;
+    yield this.y;
+  }
+  /**
+   * Computes the cross product between this and another vector.
+   *
+   * @param v The other vector.
+   * @returns A new vector orthogonal to both inputs.
+   */
+  cross(v) {
+    const vec = v instanceof Vector ? v : _Vector2.fromInput(v);
+    return this.x * vec.y - this.y * vec.x;
+  }
+};
+var Vector3 = class _Vector3 extends Vector {
+  static size = 3;
+  static keys = ["x", "y", "z"];
+  z = 0;
+  /**
+   * Constructs a new 3D vector.
+   * @param x The x-component of the vector.
+   * @param y The y-component of the vector.
+   * @param z The z-component of the vector.
+   */
+  constructor(x = 0, y = 0, z = 0) {
+    super(x, y, z);
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
+  *[Symbol.iterator]() {
+    yield this.x;
+    yield this.y;
+    yield this.z;
+  }
+  /**
+   * Computes the cross product between this and another vector.
+   *
+   * @param v The other vector.
+   * @returns A new vector orthogonal to both inputs.
+   */
+  cross(v) {
+    const vec = v instanceof _Vector3 ? v : _Vector3.fromInput(v);
+    return new _Vector3(this.y * vec.z - this.z * vec.y, this.z * vec.x - this.x * vec.z, this.x * vec.y - this.y * vec.x);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/game/Entity/index.js
+var isServer = context === "server";
+var GameEntity = class extends StateBag {
+  #handle = 0;
+  type = "";
+  netId = 0;
+  get handle() {
+    return this.#handle;
+  }
+  setHandle(handle) {
+    this.#handle = handle;
+    this.netId = NetworkGetNetworkIdFromEntity(handle);
+    this.statebag = this.netId ? `${this.type === "Player" ? "player" : "entity"}:${this.netId}` : `localEntity:${handle}`;
+    if ((!this.netId || isServer) && this.type !== "Player") EnsureEntityStateBag(handle);
+  }
+  getCoords() {
+    return Vector3.fromArray(GetEntityCoords(this.handle));
+  }
+  setCoords(x, y, z, deadFlag = false, ragdollFlag = false, clearArea = false) {
+    SetEntityCoords(this.handle, x, y, z, true, deadFlag, ragdollFlag, clearArea);
+  }
+  getModel() {
+    return GetEntityModel(this.handle);
+  }
+  getHeading() {
+    return GetEntityHeading(this.handle);
+  }
+  setHeading(heading) {
+    SetEntityHeading(this.handle, heading);
+  }
+  getRoutingBucket() {
+    return isServer ? GetEntityRoutingBucket(this.handle) : this.get("bucket") ?? 0;
+  }
+  setRoutingBucket(bucket) {
+    if (!isServer) return;
+    SetEntityRoutingBucket(this.handle, bucket);
+    this.set("bucket", bucket, true);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/game/Prop/index.js
+var Prop = class extends GameEntity {
+  type = "Prop";
+  constructor(handle) {
+    super();
+    this.setHandle(handle);
+  }
+  setOnGround() {
+    if (context === "client") return PlaceObjectOnGroundProperly(this.handle);
+    return this.set("ox_entity_setonground", true, true);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/game/Ped/index.js
+var Ped = class extends GameEntity {
+  type = "Ped";
+  constructor(handle) {
+    super();
+    if (IsPedAPlayer(handle)) this.type = "Player";
+    this.setHandle(handle);
+  }
+  getArmour() {
+    return GetPedArmour(this.handle);
+  }
+  setArmour(amount) {
+    SetPedArmour(this.handle, amount);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/game/Player/index.js
+var isServer2 = context === "server";
+var Player = class extends Ped {
+  type = "Player";
+  playerId;
+  constructor(netId) {
+    if (netId === -1) netId = isServer2 ? Number(GetPlayerFromIndex(0)) : GetPlayerServerId(PlayerId());
+    const playerId = isServer2 ? netId : GetPlayerFromServerId(netId);
+    super(GetPlayerPed(playerId));
+    this.playerId = playerId;
+  }
+  get handle() {
+    return isServer2 ? super.handle : GetPlayerPed(this.playerId);
+  }
+  setModel(model) {
+    SetPlayerModel(this.playerId, model);
+  }
+  getRoutingBucket() {
+    return isServer2 ? GetPlayerRoutingBucket(this.playerId) : this.get("bucket") ?? 0;
+  }
+  setRoutingBucket(bucket) {
+    if (!isServer2) return;
+    SetPlayerRoutingBucket(this.playerId, bucket);
+    this.set("bucket", bucket, true);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/game/Vehicle/index.js
+var Vehicle = class extends GameEntity {
+  constructor(handle) {
+    super();
+    this.setHandle(handle);
+  }
+  getType() {
+    return GetVehicleType(this.handle);
+  }
+  getPlate() {
+    return GetVehicleNumberPlateText(this.handle);
+  }
+  setPlate(plate) {
+    SetVehicleNumberPlateText(this.handle, plate);
+  }
+  setOnGround() {
+    if (context === "client") return SetVehicleOnGroundProperly(this.handle);
+    return this.set("ox_entity_setonground", true, true);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/getNearbyVehicles/index.js
+init_cache();
+function getNearbyVehicles(coords, maxDistance = 2, includePlayerVehicle = false) {
+  const vehicles = GetGamePool("CVehicle");
+  const nearbyVehicles = [];
+  for (const vehicle of vehicles) if (context === "server" || !cache.vehicle || vehicle !== cache.vehicle || includePlayerVehicle) {
+    const vehicleCoords = Vector3.fromArray(GetEntityCoords(vehicle, true));
+    if (vehicleCoords.distance(coords) < maxDistance && NetworkGetEntityIsNetworked(vehicle)) nearbyVehicles.push({
+      vehicle,
+      coords: vehicleCoords
+    });
+  }
+  return nearbyVehicles;
+}
+
+// node_modules/@overextended/ox_lib/dist/common/hooks/index.js
+init_cache();
+var hooks = /* @__PURE__ */ new Set();
+on("onResourceStop", (resource) => {
+  for (let hook of hooks) hook.remove(resource);
+});
+var HookPipeline = class {
+  hooks;
+  event;
+  filter;
+  /**
+  * Creates a hook pipeline for a specific event.
+  * The pipeline manages a collection of registered hooks and controls execution
+  * flow through filtering, rejection, and dispatching.
+  *
+  * It also exposes external resource hooks:
+  * - `registerHook:<event>` adds a hook to the pipeline
+  * - `removeHook:<event>` removes a hook from the pipeline
+  */
+  constructor(event, filter) {
+    this.hooks = [];
+    this.event = event;
+    this.filter = filter;
+    hooks.add(this);
+    exports(`registerHook:${event}`, (ref, options) => this.registerHook(ref, options));
+    exports(`removeHook:${event}`, (hookId) => {
+      const resource = GetInvokingResource() || cache.resource;
+      this.remove(resource, hookId);
+    });
+  }
+  /**
+  * Registers a hook into the pipeline for the current event.
+  * @param options Optional metadata attached to the hook.
+  */
+  registerHook(cb, options) {
+    const idx = this.hooks.length;
+    const resource = GetInvokingResource() || cache.resource;
+    const hook = {};
+    if (options) Object.assign(hook, options);
+    if (cb) hook.cb = cb;
+    hook.resource = resource || cache.resource;
+    hook.hookId = `${resource}:${this.event}:${idx}`;
+    this.hooks.push(hook);
+    return hook.hookId;
+  }
+  /**
+  * Removes hooks from the pipeline.
+  * - If `hookId` is provided, only the matching hook is removed.
+  * - If omitted, all hooks belonging to the invoking resource are removed.
+  */
+  remove(resource, hookId) {
+    for (let i = this.hooks.length - 1; i >= 0; i--) {
+      const hook = this.hooks[i];
+      if (hook.resource === resource && (!hookId || hook.hookId === hookId)) this.hooks.splice(i, 1);
+    }
+  }
+  /**
+  * Executes the hook pipeline for the payload.
+  *
+  * Each registered hook is evaluated in order of registration, checking the payload against a provided filter\
+  * using the hook options and executing the hook callback.
+  *
+  * A hook may block execution by returning `false` from the pipeline filter or its own callback.
+  *
+  * If any hook rejects the execution, dispatch is cancelled and `result.ok` is set to `false`.
+  *
+  * The returned object acts as a finalisation handle and emits results to registered handlers once closed.
+  */
+  dispatch(payload) {
+    var _a, _b;
+    const events = [];
+    const result = {
+      ok: true,
+      size: 0,
+      [Symbol.dispose]: () => {
+        const packed = msgpack_pack([result.ok, payload]);
+        for (let event of events) TriggerEventInternal(event, packed, packed.length);
+      }
+    };
+    for (let hook of this.hooks) {
+      const runHook = ((_a = this.filter) == null ? void 0 : _a.call(this, hook, payload)) !== false;
+      if (runHook && ((_b = hook.cb) == null ? void 0 : _b.call(hook, payload)) === false) {
+        result.ok = false;
+        break;
+      }
+      if (runHook) events.push(hook.hookId);
+    }
+    result.size = events.length;
+    return result;
+  }
+};
+var EventHook = class {
+  hookId;
+  resource;
+  event;
+  handler;
+  /** Creates a new EventHook instance bound to a specific exported hook. */
+  constructor(hookId, resource, event) {
+    this.hookId = hookId;
+    this.resource = resource;
+    this.event = event;
+  }
+  /**
+  * ---Attaches a post-execution event handler for this hook.
+  * The handler is triggered after the hooked event completes and receives:
+  * - `ok` whether the original event execution succeeded
+  * - `payload` the returned or processed event data
+  *
+  * If a handler is already registered, it will be replaced.
+  */
+  on(handler) {
+    this.off();
+    this.handler = handler;
+    on(this.hookId, this.handler);
+  }
+  /** Detaches the currently registered post-hook event handler, if one exists. */
+  off() {
+    if (!this.handler) return;
+    removeEventListener(this.hookId, this.handler);
+  }
+  /**
+  * Fully removes this hook from both the local event system and the external
+  * hook registry provided by the originating resource.
+  *
+  * This invalidates the hook instance; it should not be used afterward.
+  */
+  remove() {
+    this.off();
+    exports[this.resource][`removeHook:${this.event}`](this.hookId);
+  }
+};
+function registerHook(eventName, handler, options) {
+  const [resource, event] = eventName.split(":", 2);
+  if (!resource || !event) throw new Error(`Invalid event format: ${eventName} (expected "resourceName:eventName")`);
+  if (handler && !options && typeof handler !== "function") {
+    options = handler;
+    handler = null;
+  }
+  return new EventHook(exports[resource][`registerHook:${event}`](handler, options), resource, event);
+}
+
+// node_modules/@overextended/ox_lib/dist/common/locale/index.js
+init_cache();
+var import_fast_printf = __toESM(require_printf(), 1);
+var dict = {};
+function flattenDict(source2, target, prefix) {
+  for (const key in source2) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    const value = source2[key];
+    if (typeof value === "object") flattenDict(value, target, fullKey);
+    else target[fullKey] = String(value);
+  }
+  return target;
+}
+function locale(str, ...args) {
+  const lstr = dict[str];
+  if (!lstr) return str;
+  if (lstr) {
+    if (typeof lstr !== "string") return lstr;
+    if (args.length > 0) return (0, import_fast_printf.printf)(lstr, ...args);
+    return lstr;
+  }
+  return str;
+}
+var getLocales = () => dict;
+function getLocale(resource, key) {
+  let locale2 = dict[key];
+  if (locale2) console.warn(`overwritin existing locale '${key} (${locale2})`);
+  locale2 = exports[resource].getLocale(key);
+  dict[key] = locale2;
+  if (!locale2) console.warn(`no locale exists with key '${key} in resource '${resource}`);
+  return locale2;
+}
+function loadLocale(key) {
+  const data = LoadResourceFile(cache.resource, `locales/${key}.json`);
+  if (!data) console.warn(`could not load 'locales/${key}.json'`);
+  return JSON.parse(data) || {};
+}
+var initLocale = (key) => {
+  const lang = key || exports.ox_lib.getLocaleKey();
+  let locales = loadLocale("en");
+  if (lang !== "en") Object.assign(locales, loadLocale(lang));
+  const flattened = flattenDict(locales, {});
+  for (let [k, v] of Object.entries(flattened)) {
+    if (typeof v === "string") {
+      const regExp = /* @__PURE__ */ new RegExp(/\$\{([^}]+)\}/g);
+      const matches = v.match(regExp);
+      if (matches) for (const match of matches) {
+        if (!match) break;
+        let locale2 = flattened[match.substring(2, match.length - 1)];
+        if (locale2) v = v.replace(match, locale2);
+      }
+    }
+    dict[k] = v;
+  }
+};
+initLocale();
+function createLocales() {
+  return (key, ...args) => locale(key, ...args);
+}
+
+// node_modules/@overextended/ox_lib/dist/common/version/index.js
+var checkDependency = (resource, minimumVersion, printMessage) => exports.ox_lib.checkDependency(resource, minimumVersion, printMessage);
+
+// node_modules/@overextended/ox_lib/dist/common/zones/index.js
+init_cache();
+
+// node_modules/@overextended/core/dist/grid.js
+function filterSet(set, predicate) {
+  const result = /* @__PURE__ */ new Set();
+  for (const value of set) {
+    if (predicate(value))
+      result.add(value);
+  }
+  return result;
+}
+var Grid = class {
+  cellWidth;
+  cellHeight;
+  #rows = /* @__PURE__ */ new Map();
+  #cache = {};
+  /** All registered entries in the grid. Should not be directly modified. */
+  entries = /* @__PURE__ */ new Set();
+  constructor(cellWidth = 128, cellHeight = cellWidth) {
+    this.cellWidth = cellWidth;
+    this.cellHeight = cellHeight;
+    this.resetCache();
+  }
+  /**
+   * Calculates the grid cell boundaries occupied by a rectangle.
+   *
+   * @param wx The x-coordinate to convert to grid space.
+   * @param wy The y-coordinate to convert to grid space.
+   * @param width The width of the rectangle (optional, defaults to cellWidth).
+   * @param height The height of the rectangle (optional, defaults to cellHeight).
+   * @returns A tuple representing grid cell indices.
+   */
+  getDimensions(wx, wy, width = this.cellWidth, height = this.cellHeight) {
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const left = Math.floor((wx - halfWidth) / this.cellWidth);
+    const right = Math.floor((wx + halfWidth) / this.cellWidth);
+    const top = Math.floor((wy - halfHeight) / this.cellHeight);
+    const bottom = Math.floor((wy + halfHeight) / this.cellHeight);
+    return [left, right, top, bottom];
+  }
+  /**
+   * Clears the internal cache used to optimise repeated queries.
+   */
+  resetCache() {
+    const entries = this.#cache.entries ?? /* @__PURE__ */ new Set();
+    const lastCell = this.#cache.lastCell ?? /* @__PURE__ */ new Set();
+    lastCell.clear();
+    entries.clear();
+    return this.#cache = {
+      entries,
+      lastCell
+    };
+  }
+  /**
+   * Converts world space coordinates to grid-space indices.
+   *
+   * @param wx The `x` position in world space.
+   * @param wy The `y` position in world space.
+   * @returns A tuple representing the grid cell indices.
+   */
+  getGridPosition(wx, wy) {
+    const x = Math.floor(wx / this.cellWidth);
+    const y = Math.floor(wy / this.cellHeight);
+    return [x, y];
+  }
+  /**
+   * Converts grid-space indices to world space coordinates.
+   * @param gx The horizontal grid-space index (column).
+   * @param gy The vertical grid-space index (row).
+   * @returns A tuple representing the centre of the grid cell in world space.
+   */
+  getWorldPosition(gx, gy) {
+    const wx = gx * this.cellWidth + 0.5 * this.cellWidth;
+    const wy = gy * this.cellHeight + 0.5 * this.cellHeight;
+    return [wx, wy];
+  }
+  /**
+   * Retrieves the set of entries in the cell containing the specified world coordinates.
+   * @param wx The `x` position in world space.
+   * @param wy The `y` position in world space.
+   * @returns A read-only set of entries in the cell.
+   */
+  getCell(wx, wy) {
+    var _a;
+    const [gx, gy] = this.getGridPosition(wx, wy);
+    if (this.#cache.lastX !== gx || this.#cache.lastY !== gy) {
+      this.#cache.lastX = gx;
+      this.#cache.lastY = gy;
+      this.#cache.lastCell = ((_a = this.#rows.get(gy)) == null ? void 0 : _a.get(gx)) || /* @__PURE__ */ new Set();
+    }
+    const cell = this.#cache.lastCell;
+    return cell;
+  }
+  /**
+   * Retrieves all entries occupying the same or neighbouring grid cells around a point.
+   * @param wx The `x` position in world space.
+   * @param wy The `y` position in world space.
+   * @param predicate An optional filter applied to the entries.
+   * @returns A read-only set of matching entries.
+   */
+  getEntries(wx, wy, predicate) {
+    const [left, right, top, bottom] = this.getDimensions(wx, wy);
+    if (this.#cache.left === left && this.#cache.right === right && this.#cache.top === top && this.#cache.bottom === bottom) {
+      return predicate ? filterSet(this.#cache.entries, predicate) : this.#cache.entries;
+    }
+    const entries = /* @__PURE__ */ new Set();
+    for (let y = top; y <= bottom; y++) {
+      const row = this.#rows.get(y);
+      if (!row)
+        continue;
+      for (let x = left; x <= right; x++) {
+        const cell = row.get(x);
+        if (!cell)
+          continue;
+        for (const entry of cell) {
+          entries.add(entry);
+        }
+      }
+    }
+    this.#cache.left = left;
+    this.#cache.right = right;
+    this.#cache.top = top;
+    this.#cache.bottom = bottom;
+    this.#cache.entries = entries;
+    return predicate ? filterSet(this.#cache.entries, predicate) : this.#cache.entries;
+  }
+  /**
+   * Adds a new entry to the grid.
+   * @param entry A new object to add to the grid.
+   */
+  add(entry) {
+    if (this.entries.has(entry)) {
+      throw new Error(`Entry already exists in the grid.`);
+    }
+    const [left, right, top, bottom] = this.getDimensions(entry.x, entry.y, entry.width, entry.height);
+    for (let y = top; y <= bottom; y++) {
+      let row = this.#rows.get(y);
+      if (!row) {
+        this.#rows.set(y, row = /* @__PURE__ */ new Map());
+      }
+      for (let x = left; x <= right; x++) {
+        if (!row.has(x))
+          row.set(x, /* @__PURE__ */ new Set());
+        row.get(x).add(entry);
+      }
+    }
+    this.resetCache();
+    this.entries.add(entry);
+  }
+  /**
+   * Removes an entry from the grid.
+   * @param entry An existing grid entry.
+   */
+  remove(entry) {
+    if (!this.entries.has(entry))
+      return false;
+    const [left, right, top, bottom] = this.getDimensions(entry.x, entry.y, entry.width, entry.height);
+    let success = false;
+    for (let y = top; y <= bottom; y++) {
+      const row = this.#rows.get(y);
+      if (!row)
+        continue;
+      for (let x = left; x <= right; x++) {
+        const cell = row.get(x);
+        if (!cell)
+          continue;
+        if (cell.delete(entry))
+          success = true;
+        if (cell.size === 0)
+          row.delete(x);
+      }
+      if (row.size === 0)
+        this.#rows.delete(y);
+    }
+    if (success) {
+      this.resetCache();
+      this.entries.delete(entry);
+    }
+    return success;
+  }
+  /**
+   * Adds multiple entries to the grid.
+   * @param entries An array of entries to add.
+   */
+  addAll(entries) {
+    for (const entry of entries)
+      this.add(entry);
+  }
+  /**
+   * Removes multiple entries from the grid.
+   * @param entries An array of entries to remove.
+   */
+  removeAll(entries) {
+    for (const entry of entries)
+      this.remove(entry);
+  }
+  /**
+   * Updates the position and dimensions of an existing entry in the grid.
+   * @param entry The entry to update.
+   */
+  update(entry, { x, y, width, height }) {
+    if (!this.entries.has(entry)) {
+      throw new Error(`Cannot update an entry that doesn't exist in the grid.`);
+    }
+    this.remove(entry);
+    if (typeof x === "number")
+      entry.x = x;
+    if (typeof y === "number")
+      entry.y = y;
+    if (typeof width === "number")
+      entry.width = width;
+    if (typeof height === "number")
+      entry.height = height;
+    this.add(entry);
+  }
+  /**
+   * Removes all entries from the grid.
+   */
+  clear() {
+    this.#rows.clear();
+    this.entries.clear();
+    this.resetCache();
+  }
+};
+
+// node_modules/@overextended/core/dist/geometry.js
+var Sphere = class _Sphere {
+  coords;
+  radius;
+  #bounds;
+  /**
+   * Creates a new sphere.
+   * @param coords The centre of the sphere.
+   * @param radius The radius of the sphere.
+   */
+  constructor(coords, radius) {
+    if (radius <= 0)
+      throw new Error("Radius must be positive.");
+    this.coords = coords;
+    this.radius = radius;
+  }
+  /**
+   * Calculates the axis-aligned bounding box of the sphere.
+   */
+  calculateBounds() {
+    const { x, y, z } = this.coords;
+    const r = this.radius;
+    return {
+      minX: x - r,
+      minY: y - r,
+      minZ: z - r,
+      maxX: x + r,
+      maxY: y + r,
+      maxZ: z + r
+    };
+  }
+  /**
+   * Checks if a point (x, y, z) lies within the sphere.
+   * @param x The x coordinate of the point.
+   * @param y The y coordinate of the point.
+   * @param z The z coordinate of the point.
+   */
+  contains(x, y, z) {
+    const dx = x - this.coords.x;
+    const dy = y - this.coords.y;
+    const dz = z - this.coords.z;
+    return dx * dx + dy * dy + dz * dz <= this.radius ** 2;
+  }
+  /**
+   * Calculates the geometric centre of the sphere.
+   */
+  calculateCentroid() {
+    return this.coords;
+  }
+  /**
+   * The volume of the sphere.
+   */
+  get volume() {
+    return 4 / 3 * Math.PI * this.radius ** 3;
+  }
+  /**
+   * The axis-aligned bounding box of the sphere.
+   */
+  get bounds() {
+    return this.#bounds ??= Object.freeze(this.calculateBounds());
+  }
+  /**
+   * The geometric centre of the sphere.
+   */
+  get centroid() {
+    return this.coords;
+  }
+  /**
+   * Returns a deep clone of the sphere.
+   */
+  clone() {
+    return new _Sphere(new Vector3(this.coords.x, this.coords.y, this.coords.z), this.radius);
+  }
+  /**
+   * Returns the closest point on the sphere's surface to a given point.
+   * @param point The point to project onto the sphere.
+   */
+  closestPoint(point) {
+    const direction = point.clone().subtract(this.coords);
+    const distance = direction.length();
+    if (distance === 0) {
+      direction.x = this.coords.x + this.radius;
+      direction.y = this.coords.y;
+      direction.z = this.coords.z;
+      return direction;
+    }
+    direction.multiply(this.radius / distance);
+    return direction.add(this.coords);
+  }
+};
+var Polygon = class _Polygon {
+  vertices;
+  #signedArea;
+  #bounds;
+  #centroid;
+  #triangles;
+  /**
+   * Creates a new 2D polygon.
+   * @param vertices An array containing at least 3 vertices.
+   */
+  constructor(vertices) {
+    if (vertices.length < 3)
+      throw new Error("A polygon requires at least 3 vertices.");
+    this.vertices = vertices;
+  }
+  /**
+   * Calculates the area of the polygon using the shoelace formula.
+   *
+   * @param signed If `true` returns the signed area, otherwise returns the absolute area of the polygon.
+   */
+  calculateArea(signed = false) {
+    const vertices = this.vertices;
+    let area = 0;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const { x: ax, y: ay } = vertices[i];
+      const { x: bx, y: by } = vertices[j];
+      area += ax * by - bx * ay;
+    }
+    area /= 2;
+    return signed ? area : Math.abs(area);
+  }
+  /**
+   * Calculates the axis-aligned bounding box of the polygon.
+   */
+  calculateBounds() {
+    let [minX, maxX] = [Infinity, -Infinity];
+    let [minY, maxY] = [Infinity, -Infinity];
+    for (const v of this.vertices) {
+      if (v.x < minX)
+        minX = v.x;
+      if (v.y < minY)
+        minY = v.y;
+      if (v.x > maxX)
+        maxX = v.x;
+      if (v.y > maxY)
+        maxY = v.y;
+    }
+    return { minX, minY, maxX, maxY };
+  }
+  /**
+   * Calculates the geometric centre of the polygon.
+   */
+  calculateCentroid() {
+    const vertices = this.vertices;
+    let x = 0;
+    let y = 0;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const { x: ax, y: ay } = vertices[i];
+      const { x: bx, y: by } = vertices[j];
+      const cross = ax * by - bx * ay;
+      x += (ax + bx) * cross;
+      y += (ay + by) * cross;
+    }
+    const f = 1 / (6 * this.signedArea);
+    return new Vector2(x * f, y * f);
+  }
+  calculateTriangles() {
+    const triangles = [];
+    if (this.isConvex()) {
+      for (let i = 1; i < this.vertices.length - 1; i++) {
+        triangles.push([
+          this.vertices[0],
+          this.vertices[i],
+          this.vertices[i + 1]
+        ]);
+      }
+      return triangles;
+    }
+    const isCCW = this.signedArea > 0;
+    const indices = Array.from({ length: this.vertices.length }, (_, i) => isCCW ? this.vertices.length - 1 - i : i);
+    while (true) {
+      let foundEar = false;
+      for (let i = 0; i < indices.length; i++) {
+        const i1 = indices[(i - 1 + indices.length) % indices.length];
+        const i2 = indices[i];
+        const i3 = indices[(i + 1) % indices.length];
+        const a = this.vertices[i1];
+        const b = this.vertices[i2];
+        const c = this.vertices[i3];
+        const cross = _Polygon.cross(a, b, c);
+        if (cross <= 0)
+          continue;
+        let isEar = true;
+        for (let j = 0; j < indices.length; j++) {
+          const idx = indices[j];
+          if (idx === i1 || idx === i2 || idx === i3)
+            continue;
+          const p = this.vertices[idx];
+          const c1 = _Polygon.cross(a, b, p);
+          const c2 = _Polygon.cross(b, c, p);
+          const c3 = _Polygon.cross(c, a, p);
+          const hasNeg = c1 < 0 || c2 < 0 || c3 < 0;
+          const hasPos = c1 > 0 || c2 > 0 || c3 > 0;
+          const pointInTriangle = !(hasNeg && hasPos);
+          if (pointInTriangle) {
+            isEar = false;
+            break;
+          }
+        }
+        if (isEar) {
+          foundEar = true;
+          triangles.push([a, b, c]);
+          indices.splice(i, 1);
+          break;
+        }
+      }
+      if (!foundEar) {
+        console.error("Triangulation failed: possible non-simple or degenerate polygon");
+        break;
+      }
+      if (indices.length === 3) {
+        const [i1, i2, i3] = indices;
+        triangles.push([
+          this.vertices[i1],
+          this.vertices[i2],
+          this.vertices[i3]
+        ]);
+        break;
+      }
+    }
+    return triangles;
+  }
+  /**
+   * The absolute area of the polygon.
+   */
+  get area() {
+    return Math.abs(this.signedArea);
+  }
+  /**
+   * The signed area of the polygon.
+   */
+  get signedArea() {
+    return this.#signedArea ??= this.calculateArea(true);
+  }
+  /**
+   * The axis-aligned bounding box of the polygon.
+   */
+  get bounds() {
+    return this.#bounds ??= Object.freeze(this.calculateBounds());
+  }
+  /**
+   * The geometric centre of the polygon.
+   */
+  get centroid() {
+    return this.#centroid ??= Object.freeze(this.calculateCentroid());
+  }
+  get triangles() {
+    return this.#triangles ??= Object.freeze(this.calculateTriangles());
+  }
+  /**
+   * Returns a deep clone of the polygon.
+   */
+  clone() {
+    return new _Polygon(this.vertices.map((v) => new Vector2(v.x, v.y)));
+  }
+  /**
+   * Checks if a point (x, y) lies within the polygon using the ray-casting algorithm.
+   * @param x The x coordinate of the point.
+   * @param y The y coordinate of the point.
+   */
+  contains(x, y) {
+    const vertices = this.vertices;
+    let inside = false;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const { x: ax, y: ay } = vertices[i];
+      const { x: bx, y: by } = vertices[j];
+      const intersect = ay > y !== by > y && x < (bx - ax) * (y - ay) / (by - ay || Number.EPSILON) + ax;
+      if (intersect)
+        inside = !inside;
+    }
+    return inside;
+  }
+  /**
+   * Returns the closest point on the polygon's edges to a given point.
+   * @param point The point to project onto the polygon.
+   */
+  closestPoint(point) {
+    const closestPoint = new Vector2();
+    const edgeVector = new Vector2();
+    const pointVector = new Vector2();
+    const projectedPoint = new Vector2();
+    const vertices = this.vertices;
+    let minDistanceSq = Infinity;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const startVertex = vertices[j];
+      const endVertex = vertices[i];
+      edgeVector.x = endVertex.x - startVertex.x;
+      edgeVector.y = endVertex.y - startVertex.y;
+      pointVector.x = point.x - startVertex.x;
+      pointVector.y = point.y - startVertex.y;
+      const factor = clamp(pointVector.dot(edgeVector) / edgeVector.lengthSquared(), 0, 1);
+      projectedPoint.x = startVertex.x + edgeVector.x * factor;
+      projectedPoint.y = startVertex.y + edgeVector.y * factor;
+      const distanceSq = projectedPoint.distanceSquared(point);
+      if (distanceSq < minDistanceSq) {
+        minDistanceSq = distanceSq;
+        closestPoint.copy(projectedPoint);
+      }
+    }
+    return closestPoint;
+  }
+  /**
+   * Calculates the cross product of three points.
+   */
+  static cross(a, b, c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  }
+  /**
+   * Determines if the polygon is convex.
+   */
+  isConvex() {
+    const vertices = this.vertices;
+    const n = vertices.length;
+    let sign = 0;
+    for (let i = 0; i < n; i++) {
+      const a = vertices[i];
+      const b = vertices[(i + 1) % n];
+      const c = vertices[(i + 2) % n];
+      const cross = _Polygon.cross(a, b, c);
+      if (cross !== 0) {
+        const currentSign = cross > 0 ? 1 : -1;
+        if (sign === 0) {
+          sign = currentSign;
+        } else if (sign !== currentSign) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+};
+var Prism = class _Prism {
+  /**
+   * Creates a rectangular prism extending out from the origin coordinates.
+   *
+   * @param origin The centre position of the prism.
+   * @param width  The length of the prism along the X axis.
+   * @param depth  The length of the prism along the Y axis.
+   * @param height The length of the prism along the Z axis.
+   * @param heading Rotation of the prism in degrees.
+   */
+  static createCuboid(origin, width, depth, height, heading = 0) {
+    let { x, y, z } = origin;
+    const hw = width / 2;
+    const hd = depth / 2;
+    const vertices = [
+      new Vector2(x - hw, y - hd),
+      new Vector2(x + hw, y - hd),
+      new Vector2(x + hw, y + hd),
+      new Vector2(x - hw, y + hd)
+    ];
+    if (heading) {
+      const rad = heading * Math.PI / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      vertices.forEach((v) => {
+        const dx = v.x - x;
+        const dy = v.y - y;
+        v.x = x + dx * cos - dy * sin;
+        v.y = y + dx * sin + dy * cos;
+      });
+    }
+    height = Math.abs(height);
+    return new _Prism(vertices, height, z);
+  }
+  z;
+  height;
+  polygon;
+  #bounds;
+  #centroid;
+  /**
+   * Creates a new extruded polygon.
+   * @param vertices An array containing at least 3 vertices.
+   * @param height Total height of the prism.
+   * @param z The centre Z position of the prism.
+   */
+  constructor(vertices, height, z) {
+    if (height <= 0)
+      throw new Error("Height must be positive number.");
+    this.polygon = new Polygon(vertices);
+    this.z = z;
+    this.height = height;
+  }
+  /**
+   * The axis-aligned bounding box of the extruded polygon.
+   */
+  get bounds() {
+    return this.#bounds ??= Object.freeze(this.calculateBounds());
+  }
+  /**
+   * The geometric centre of the extruded polygon.
+   */
+  get centroid() {
+    return this.#centroid ??= Object.freeze(this.calculateCentroid());
+  }
+  /**
+   * The volume of the extruded polygon.
+   */
+  get volume() {
+    return this.polygon.area * this.height;
+  }
+  /**
+   * Returns a deep clone of the extruded polygon.
+   */
+  clone() {
+    return new _Prism(this.polygon.vertices.map((v) => new Vector2(v.x, v.y)), this.height, this.z);
+  }
+  /**
+   * Calculates the axis-aligned bounding box of the extruded polygon.
+   */
+  calculateBounds() {
+    const bounds = this.polygon.calculateBounds();
+    const half = this.height / 2;
+    bounds.minZ = this.z - half;
+    bounds.maxZ = this.z + half;
+    return bounds;
+  }
+  /**
+   * Calculates the geometric centre of the extruded polygon.
+   */
+  calculateCentroid() {
+    const { x, y } = this.polygon.calculateCentroid();
+    return new Vector3(x, y, this.z);
+  }
+  /**
+   * Checks if a point (x, y, z) lies within the extruded polygon.
+   * @param x The x coordinate of the point.
+   * @param y The y coordinate of the point.
+   * @param z The z coordinate of the point.
+   */
+  contains(x, y, z) {
+    const half = this.height / 2;
+    if (z < this.z - half || z > this.z + half)
+      return false;
+    return this.polygon.contains(x, y);
+  }
+  /**
+   * Returns the closest point on the prism's surface to a given point.
+   * @param point The 3D point to project onto the prism.
+   */
+  closestPoint(point) {
+    const [x, y] = this.polygon.closestPoint(point);
+    const half = this.height / 2;
+    const z = clamp(point.z, this.z - half, this.z + half);
+    return new Vector3(x, y, z);
+  }
+};
+
+// node_modules/@overextended/ox_lib/dist/common/zones/index.js
+console.warn(`The ox_lib zones module is experimental and may change in future versions.`);
+var Zone = class Zone2 {
+  static nextId = 1;
+  static map = /* @__PURE__ */ new Map();
+  static grid = new Grid();
+  static Prism(...args) {
+    return new Zone2(new Prism(...args));
+  }
+  static Cuboid(...args) {
+    return new Zone2(Prism.createCuboid(...args));
+  }
+  static Sphere(...args) {
+    return new Zone2(new Sphere(...args));
+  }
+  static delete(id) {
+    const zone = Zone2.map.get(id);
+    if (zone) {
+      Zone2.map.delete(id);
+      Zone2.grid.remove(zone);
+    }
+  }
+  static getNearby(point) {
+    return Zone2.grid.getEntries(point.x, point.y);
+  }
+  static has(id) {
+    return Zone2.map.has(id);
+  }
+  shouldDraw = false;
+  constructor(shape) {
+    this.shape = shape;
+    this.x = shape.centroid.x;
+    this.y = shape.centroid.y;
+    this.id = `zone:${Zone2.nextId++}`;
+    if (shape instanceof Prism) {
+      const bounds = shape.bounds;
+      this.width = Math.abs(bounds.maxX - bounds.minX);
+      this.height = Math.abs(bounds.maxY - bounds.minY);
+    } else {
+      const diametre = ("circle" in shape ? shape.circle.radius : shape.radius) * 2;
+      this.width = diametre;
+      this.height = diametre;
+    }
+    Zone2.grid.add(this);
+    Zone2.map.set(this.id, this);
+  }
+  draw(red = 255, green = 42, blue = 24, alpha = 100) {
+    if (cache.game === "fxserver") return;
+    if (this.shape instanceof Sphere) {
+      const { x, y, z } = this.shape.coords;
+      const radius = this.shape.radius;
+      return DrawMarker(28, x, y, z, 0, 0, 0, 0, 0, 0, radius, radius, radius, red, green, blue, alpha, false, false, 0, false, null, null, false);
+    }
+    if (this.shape instanceof Prism) {
+      const polygon = this.shape.polygon;
+      const half = this.shape.height / 2;
+      const minZ = this.shape.z - half;
+      const maxZ = this.shape.z + half;
+      for (let i = 0; i < polygon.vertices.length; i++) {
+        const curr = polygon.vertices[i];
+        const next = polygon.vertices[i + 1] || polygon.vertices[0];
+        DrawLine(curr.x, curr.y, minZ, curr.x, curr.y, maxZ, red, green, blue, 225);
+        DrawLine(curr.x, curr.y, maxZ, next.x, next.y, maxZ, red, green, blue, 225);
+        DrawLine(curr.x, curr.y, minZ, next.x, next.y, minZ, red, green, blue, 225);
+        DrawPoly(curr.x, curr.y, minZ, curr.x, curr.y, maxZ, next.x, next.y, maxZ, red, green, blue, alpha);
+        DrawPoly(curr.x, curr.y, minZ, next.x, next.y, maxZ, next.x, next.y, minZ, red, green, blue, alpha);
+        DrawPoly(curr.x, curr.y, minZ, next.x, next.y, maxZ, curr.x, curr.y, maxZ, red, green, blue, alpha);
+        DrawPoly(curr.x, curr.y, minZ, next.x, next.y, minZ, next.x, next.y, maxZ, red, green, blue, alpha);
+      }
+      for (let i = 0; i < polygon.triangles.length; i++) {
+        const [a, b, c] = polygon.triangles[i];
+        DrawPoly(a.x, a.y, minZ, b.x, b.y, minZ, c.x, c.y, minZ, red, green, blue, alpha);
+        DrawPoly(a.x, a.y, maxZ, b.x, b.y, maxZ, c.x, c.y, maxZ, red, green, blue, alpha);
+        DrawPoly(b.x, b.y, minZ, a.x, a.y, minZ, c.x, c.y, minZ, red, green, blue, alpha);
+        DrawPoly(b.x, b.y, maxZ, a.x, a.y, maxZ, c.x, c.y, maxZ, red, green, blue, alpha);
+      }
+      return;
+    }
+  }
+};
+function startPolling() {
+  if (cache.game === "fxserver") return;
+  let nearbyZones = /* @__PURE__ */ new Set();
+  let insideZones = /* @__PURE__ */ new Set();
+  let lastZones = /* @__PURE__ */ new Set();
+  setInterval(() => {
+    const coords = Vector3.fromArray(GetEntityCoords(cache.ped, true));
+    cache.coords = coords;
+    nearbyZones = Zone.getNearby(coords);
+    [lastZones, insideZones] = [insideZones, lastZones];
+    insideZones.clear();
+    for (const zone of nearbyZones) if (zone.shape.contains(coords.x, coords.y, coords.z)) {
+      insideZones.add(zone);
+      if (!lastZones.has(zone)) {
+        if (zone.onEnter) zone.onEnter();
+      } else lastZones.delete(zone);
+    }
+    for (const zone of lastZones) if (zone.onExit) zone.onExit();
+  }, 300);
+  setTick(() => {
+    for (const zone of nearbyZones) if (zone.shouldDraw) zone.draw();
+    for (const zone of insideZones) if (zone.inside) zone.inside();
+  });
+}
+startPolling();
+
+// node_modules/@overextended/ox_lib/dist/server/acl/index.js
+var addAce = (principal, ace, allow) => exports.ox_lib.addAce(principal, ace, allow);
+var removeAce = (principal, ace, allow) => exports.ox_lib.addAce(principal, ace, allow);
+var addPrincipal = (child, parent) => exports.ox_lib.addPrincipal(child, parent);
+var removePrincipal = (child, parent) => exports.ox_lib.removePrincipal(child, parent);
+
+// node_modules/@overextended/ox_lib/dist/server/addCommand/index.js
+var registeredCommmands = [];
+var shouldSendCommands = false;
+setTimeout(() => {
+  shouldSendCommands = true;
+  emitNet("chat:addSuggestions", -1, registeredCommmands);
+}, 1e3);
+on("playerJoining", () => {
+  emitNet("chat:addSuggestions", source, registeredCommmands);
+});
+function parseArguments(source2, args, raw, params) {
+  if (!params) return args;
+  return params.every((param, index) => {
+    const arg = args[index];
+    let value;
+    switch (param.paramType) {
+      case "number":
+        value = +arg;
+        break;
+      case "string":
+        value = !Number(arg) ? arg : false;
+        break;
+      case "playerId":
+        value = arg === "me" ? source2 : +arg;
+        if (!value || !DoesPlayerExist(value.toString())) value = false;
+        break;
+      case "longString":
+        value = raw.substring(raw.indexOf(arg));
+        break;
+      default:
+        value = arg;
+        break;
+    }
+    if (value === void 0 && (!param.optional || param.optional && arg)) return Citizen.trace(`^1command '${raw.split(" ")[0] || raw}' received an invalid ${param.paramType} for argument ${index + 1} (${param.name}), received '${arg}'^0`);
+    args[param.name] = value;
+    delete args[index];
+    return true;
+  }) ? args : void 0;
+}
+function addCommand(commandName, cb, properties) {
+  const restricted = properties == null ? void 0 : properties.restricted;
+  const params = properties == null ? void 0 : properties.params;
+  if (params) params.forEach((param) => {
+    if (param.paramType) param.help = param.help ? `${param.help} (type: ${param.paramType})` : `(type: ${param.paramType})`;
+  });
+  const commands = typeof commandName !== "object" ? [commandName] : commandName;
+  const numCommands = commands.length;
+  const commandHandler = (source2, args, raw) => {
+    const parsed = parseArguments(source2, args, raw, params);
+    if (!parsed) return;
+    cb(source2, parsed, raw).catch((e) => Citizen.trace(`^1command '${raw.split(" ")[0] || raw}' failed to execute!^0
+${e.message}`));
+  };
+  commands.forEach((commandName2, index) => {
+    RegisterCommand(commandName2, commandHandler, restricted ? true : false);
+    if (restricted) {
+      const ace = `command.${commandName2}`;
+      const restrictedType = typeof restricted;
+      if (restrictedType === "string" && !IsPrincipalAceAllowed(restricted, ace)) addAce(restricted, ace, true);
+      else if (restrictedType === "object") restricted.forEach((principal) => {
+        if (!IsPrincipalAceAllowed(principal, ace)) addAce(principal, ace, true);
+      });
+    }
+    if (properties) {
+      properties.name = `/${commandName2}`;
+      delete properties.restricted;
+      registeredCommmands.push(properties);
+      if (index !== numCommands && numCommands !== 1) properties = { ...properties };
+      if (shouldSendCommands) emitNet("chat:addSuggestions", -1, properties);
+    }
+  });
+}
+
 // node_modules/@overextended/ox_lib/dist/server/callback/index.js
 init_cache();
-var pendingCallbacks = {};
-var callbackTimeout = GetConvarInt("ox:callbackTimeout", 3e5);
+var pendingCallbacks2 = {};
+var callbackTimeout2 = GetConvarInt("ox:callbackTimeout", 3e5);
 onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
-  const resolve2 = pendingCallbacks[key];
+  const resolve2 = pendingCallbacks2[key];
   if (!resolve2) return;
-  delete pendingCallbacks[key];
+  delete pendingCallbacks2[key];
   resolve2(...args);
 });
 function triggerClientCallback(eventName, playerId, ...args) {
   let key;
   do
     key = `${eventName}:${Math.floor(Math.random() * 100001)}:${playerId}`;
-  while (pendingCallbacks[key]);
+  while (pendingCallbacks2[key]);
   emitNet(`ox_lib:validateCallback`, playerId, eventName, cache.resource, key);
   emitNet(`__ox_cb_${eventName}`, playerId, cache.resource, key, ...args);
   return new Promise((resolve2, reject) => {
-    pendingCallbacks[key] = (args2) => {
+    pendingCallbacks2[key] = (args2) => {
       if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
       resolve2(args2);
     };
-    setTimeout(reject, callbackTimeout, `callback event '${key}' timed out`);
+    setTimeout(reject, callbackTimeout2, `callback event '${key}' timed out`);
+  });
+}
+function onClientCallback(eventName, cb) {
+  exports.ox_lib.setValidCallback(eventName, true);
+  onNet(`__ox_cb_${eventName}`, async (resource, key, ...args) => {
+    const src = source;
+    let response;
+    try {
+      response = await cb(src, ...args);
+    } catch (e) {
+      console.error(`an error occurred while handling callback event ${eventName}`);
+      console.log(`^3${e.stack}^0`);
+    }
+    emitNet(`__ox_cb_${resource}`, src, key, response);
   });
 }
 
+// node_modules/@overextended/ox_lib/dist/server/game/Prop/index.js
+async function createObject(model, x, y, z, heading = 0, isNetworked = false, netMissionEntity = false, dynamic = false) {
+  const prop = new Prop(CreateObjectNoOffset(model, x, y, z, isNetworked, netMissionEntity, dynamic));
+  if (heading) prop.setHeading(heading);
+  return prop;
+}
+
+// node_modules/@overextended/ox_lib/dist/server/game/Ped/index.js
+async function createPed(model, x, y, z, heading = 0) {
+  return new Ped(CreatePed(0, model, x, y, z, heading, true, true));
+}
+
+// node_modules/@overextended/ox_lib/dist/server/game/Vehicle/index.js
+var CreateVehicleServerSetter = globalThis.CreateVehicleServerSetter || ((model, type, x, y, z, heading = 0) => {
+  return CreateVehicle(model, x, y, z, heading, true, true);
+});
+async function createVehicle(model, type, x, y, z, heading = 0) {
+  return new Vehicle(CreateVehicleServerSetter(model, type, x, y, z, heading));
+}
+
+// node_modules/@overextended/ox_lib/dist/server/locale/index.js
+var getServerLocale = () => exports.ox_lib.getServerLocale();
+
 // node_modules/@overextended/ox_lib/dist/server/version/index.js
 var versionCheck = (repository) => exports.ox_lib.versionCheck(repository);
+
+// node_modules/@overextended/ox_lib/dist/server/misc.js
+function setVehicleProperties(vehicle, props) {
+  Entity(vehicle).state.set("ox_lib:setVehicleProperties", props, true);
+}
+
+// node_modules/@overextended/ox_lib/dist/server/index.js
+var server_exports2 = /* @__PURE__ */ __exportAll({
+  GameEntity: () => GameEntity,
+  HookPipeline: () => HookPipeline,
+  Ped: () => Ped,
+  Player: () => Player,
+  Prop: () => Prop,
+  StateBag: () => StateBag,
+  Vehicle: () => Vehicle,
+  Zone: () => Zone,
+  addAce: () => addAce,
+  addCommand: () => addCommand,
+  addPrincipal: () => addPrincipal,
+  cache: () => cache,
+  checkDependency: () => checkDependency,
+  context: () => context,
+  createLocales: () => createLocales,
+  createObject: () => createObject,
+  createPed: () => createPed,
+  createVehicle: () => createVehicle,
+  getLocale: () => getLocale,
+  getLocales: () => getLocales,
+  getNearbyVehicles: () => getNearbyVehicles,
+  getRandomAlphanumeric: () => getRandomAlphanumeric,
+  getRandomChar: () => getRandomChar,
+  getRandomInt: () => getRandomInt,
+  getRandomString: () => getRandomString,
+  getServerLocale: () => getServerLocale,
+  initLocale: () => initLocale,
+  lib: () => server_exports2,
+  locale: () => locale,
+  onCache: () => onCache,
+  onClientCallback: () => onClientCallback,
+  registerHook: () => registerHook,
+  removeAce: () => removeAce,
+  removePrincipal: () => removePrincipal,
+  setVehicleProperties: () => setVehicleProperties,
+  sleep: () => sleep3,
+  triggerClientCallback: () => triggerClientCallback,
+  versionCheck: () => versionCheck,
+  waitFor: () => waitFor
+});
 
 // src/server/plugins/oxlib/index.ts
 var RESOURCE2 = "ox_lib";
@@ -7216,7 +9441,7 @@ var oxLibPlugin = {
   name: "oxlib",
   description: "ox_lib bridge \u2014 notifications, client callbacks, version check.",
   detect: () => isResourceStarted(RESOURCE2),
-  install: ({ register: register2 }) => {
+  install: ({ register: register2, convars }) => {
     register2({
       name: "oxlib_notify",
       description: "Trigger an ox_lib UI notification on one player.",
@@ -7267,6 +9492,55 @@ var oxLibPlugin = {
         try {
           versionCheck(`${input.resource}@${input.minVersion}`);
           return ok({ checked: true });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+    register2({
+      name: "oxlib_list_methods",
+      description: "List every exported function from @overextended/ox_lib/server \u2014 use before oxlib_call.",
+      input: external_exports.object({}).strict(),
+      handler: async () => {
+        const fns = [];
+        const ns = [];
+        for (const k of Object.keys(server_exports)) {
+          const v = server_exports[k];
+          if (typeof v === "function") fns.push(k);
+          else if (v !== null && typeof v === "object") ns.push(k);
+        }
+        return ok({ methods: fns.toSorted(), namespaces: ns.toSorted() });
+      }
+    });
+    const blocklist = csvSet("agent_api_plugin_oxlib_blocked_methods");
+    register2({
+      name: "oxlib_call",
+      description: 'Call any exported function from @overextended/ox_lib/server dynamically. Pass a dotted path (e.g. "addAce" or "cache.serverId") and arguments. Read-only verbs always allowed; mutating verbs require agent_api_readonly=false.',
+      input: external_exports.object({
+        path: external_exports.string().regex(/^[a-zA-Z_][a-zA-Z0-9_.]*$/),
+        args: external_exports.array(external_exports.unknown()).optional()
+      }).strict(),
+      handler: async (input) => {
+        const parts = input.path.split(".");
+        const leaf = parts.at(-1) ?? input.path;
+        const guard = isAllowed(leaf, { readonly: convars.readonly, blocklist });
+        if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
+        let target = server_exports;
+        for (let i = 0; i < parts.length - 1; i++) {
+          target = target[parts[i]];
+          if (target == null) {
+            return err("INVALID_INPUT", `ox_lib path segment not found: ${parts[i]}`);
+          }
+        }
+        const fnOrValue = target[leaf];
+        if (typeof fnOrValue !== "function") {
+          return ok({ path: input.path, kind: "value", value: safeSerialize(fnOrValue) });
+        }
+        try {
+          const raw = await Promise.resolve(
+            fnOrValue.apply(target, input.args ?? [])
+          );
+          return ok({ path: input.path, kind: "call", result: safeSerialize(raw) });
         } catch (e) {
           return err("INTERNAL", e instanceof Error ? e.message : String(e));
         }

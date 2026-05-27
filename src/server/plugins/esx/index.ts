@@ -2,16 +2,16 @@ import { z } from 'zod';
 import { err, ok } from '../../util/envelope';
 import { Plugin } from '../types';
 import { callExport, isResourceStarted, safeExport } from '../helpers';
+import { csvSet, isAllowed, listCallable, safeSerialize } from '../dynamic';
 
 const RESOURCE = 'es_extended';
 
-type EsxSharedObject = {
+type EsxSharedObject = Record<string, unknown> & {
   GetPlayerFromId: (serverId: number) => EsxPlayer | null;
   GetPlayers: () => number[];
-  GetExtendedPlayers?: () => EsxPlayer[];
 };
 
-type EsxPlayer = {
+type EsxPlayer = Record<string, unknown> & {
   source: number;
   identifier: string;
   getName?: () => string;
@@ -23,8 +23,6 @@ type EsxPlayer = {
   addAccountMoney?: (account: string, n: number) => void;
   removeAccountMoney?: (account: string, n: number) => void;
   setJob?: (job: string, grade: number) => void;
-  addInventoryItem?: (item: string, count: number) => void;
-  removeInventoryItem?: (item: string, count: number) => void;
 };
 
 let cachedEsx: EsxSharedObject | null = null;
@@ -134,6 +132,109 @@ export const esxPlugin: Plugin = {
         if (!p) return err('PLAYER_NOT_FOUND', `serverId ${input.serverId} not found.`);
         p.setJob?.(input.job, input.grade);
         return ok(snapshot(p));
+      },
+    });
+
+    register({
+      name: 'esx_list_shared_methods',
+      description:
+        'Discover every callable method on the ESX shared object — use before esx_call_shared.',
+      input: z.object({}).strict(),
+      handler: async () => {
+        const esx = getEsx();
+        if (!esx) return err('INTERNAL', 'ESX shared object unavailable.');
+        return ok({ methods: listCallable(esx) });
+      },
+    });
+
+    register({
+      name: 'esx_list_player_methods',
+      description:
+        'Discover every callable method on an xPlayer (e.g. getInventory, getJob, addMoney).',
+      input: z.object({ serverId: z.number().int().min(1) }).strict(),
+      handler: async (input: { serverId: number }) => {
+        const esx = getEsx();
+        if (!esx) return err('INTERNAL', 'ESX shared object unavailable.');
+        const p = esx.GetPlayerFromId(input.serverId);
+        if (!p) return err('PLAYER_NOT_FOUND', `serverId ${input.serverId} not found.`);
+        return ok({ serverId: input.serverId, methods: listCallable(p) });
+      },
+    });
+
+    const blocklist = csvSet('agent_api_plugin_esx_blocked_methods');
+
+    register({
+      name: 'esx_call_shared',
+      description:
+        'Call any method on the ESX shared object dynamically. ' +
+        'Read-only methods (get/is/has/list/find/count/...) are always allowed. ' +
+        'Mutating methods require agent_api_readonly=false. ' +
+        'Methods listed in agent_api_plugin_esx_blocked_methods are always denied.',
+      input: z
+        .object({
+          method: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+          args: z.array(z.unknown()).optional(),
+        })
+        .strict(),
+      handler: async (input: { method: string; args?: unknown[] }) => {
+        const esx = getEsx();
+        if (!esx) return err('INTERNAL', 'ESX shared object unavailable.');
+        const guard = isAllowed(input.method, { readonly: convars.readonly, blocklist });
+        if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
+        const fn = esx[input.method];
+        if (typeof fn !== 'function') {
+          return err(
+            'INVALID_INPUT',
+            `ESX.${input.method} is not a function on the shared object.`,
+          );
+        }
+        try {
+          const raw = await Promise.resolve((fn as Function).apply(esx, input.args ?? []));
+          return ok({ method: input.method, result: safeSerialize(raw) });
+        } catch (e) {
+          return err('INTERNAL', e instanceof Error ? e.message : String(e));
+        }
+      },
+    });
+
+    register({
+      name: 'esx_call_player',
+      description:
+        'Call any method on one xPlayer dynamically (e.g. getInventory, getAccount, setJob). ' +
+        'Same read/write gating as esx_call_shared.',
+      input: z
+        .object({
+          serverId: z.number().int().min(1),
+          method: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+          args: z.array(z.unknown()).optional(),
+        })
+        .strict(),
+      handler: async (input: { serverId: number; method: string; args?: unknown[] }) => {
+        const esx = getEsx();
+        if (!esx) return err('INTERNAL', 'ESX shared object unavailable.');
+        const player = esx.GetPlayerFromId(input.serverId);
+        if (!player) {
+          return err('PLAYER_NOT_FOUND', `serverId ${input.serverId} not found.`);
+        }
+        const guard = isAllowed(input.method, { readonly: convars.readonly, blocklist });
+        if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
+        const fn = player[input.method];
+        if (typeof fn !== 'function') {
+          return err(
+            'INVALID_INPUT',
+            `xPlayer.${input.method} is not a function on player ${input.serverId}.`,
+          );
+        }
+        try {
+          const raw = await Promise.resolve((fn as Function).apply(player, input.args ?? []));
+          return ok({
+            serverId: input.serverId,
+            method: input.method,
+            result: safeSerialize(raw),
+          });
+        } catch (e) {
+          return err('INTERNAL', e instanceof Error ? e.message : String(e));
+        }
       },
     });
   },
