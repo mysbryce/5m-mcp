@@ -224,14 +224,25 @@ onUnmounted(() => {
 }
 .cline {
   display: flex;
-  gap: 8px;
+  gap: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 .ch {
-  color: var(--muted);
+  width: 150px;
   flex-shrink: 0;
-  opacity: 0.7;
+  text-align: right;
+  color: var(--muted);
+  opacity: 0.75;
+  padding-right: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg {
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
 }
 .filters {
   display: flex;

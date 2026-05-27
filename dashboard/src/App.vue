@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import TopBar from './app/TopBar.vue';
+import TabIcon from './app/TabIcon.vue';
 import AuthView from './features/auth/AuthView.vue';
 import PermissionsView from './features/permissions/PermissionsView.vue';
 import PreferencesView from './features/preferences/PreferencesView.vue';
@@ -13,8 +14,13 @@ import { useI18n } from './i18n/useI18n';
 const { me, ready, boot, logout } = useAuth();
 const { t } = useI18n();
 
-type Tab = 'permissions' | 'preferences' | 'skills' | 'logs' | 'users';
+type Tab = 'logs' | 'permissions' | 'preferences' | 'skills' | 'users';
 const tab = ref<Tab>('permissions');
+
+// Master lands on Monitor by default; members only have Permissions.
+watch(me, (u) => {
+  if (u) tab.value = u.role === 'master' ? 'logs' : 'permissions';
+});
 
 onMounted(boot);
 </script>
@@ -29,8 +35,16 @@ onMounted(boot);
   <main v-else>
     <div class="wrap">
       <nav class="tabs">
+        <button
+          v-if="me.role === 'master'"
+          class="tab"
+          :class="{ active: tab === 'logs' }"
+          @click="tab = 'logs'"
+        >
+          <TabIcon name="monitor" />{{ t('tabs.logs') }}
+        </button>
         <button class="tab" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">
-          {{ t('tabs.permissions') }}
+          <TabIcon name="permissions" />{{ t('tabs.permissions') }}
         </button>
         <template v-if="me.role === 'master'">
           <button
@@ -38,24 +52,21 @@ onMounted(boot);
             :class="{ active: tab === 'preferences' }"
             @click="tab = 'preferences'"
           >
-            {{ t('tabs.preferences') }}
+            <TabIcon name="preferences" />{{ t('tabs.preferences') }}
           </button>
           <button class="tab" :class="{ active: tab === 'skills' }" @click="tab = 'skills'">
-            {{ t('tabs.skills') }}
-          </button>
-          <button class="tab" :class="{ active: tab === 'logs' }" @click="tab = 'logs'">
-            {{ t('tabs.logs') }}
+            <TabIcon name="skills" />{{ t('tabs.skills') }}
           </button>
           <button class="tab" :class="{ active: tab === 'users' }" @click="tab = 'users'">
-            {{ t('tabs.users') }}
+            <TabIcon name="users" />{{ t('tabs.users') }}
           </button>
         </template>
       </nav>
 
-      <PermissionsView v-if="tab === 'permissions'" />
+      <LogsView v-if="tab === 'logs' && me.role === 'master'" />
+      <PermissionsView v-else-if="tab === 'permissions'" />
       <PreferencesView v-else-if="tab === 'preferences' && me.role === 'master'" />
       <SkillsView v-else-if="tab === 'skills' && me.role === 'master'" />
-      <LogsView v-else-if="tab === 'logs' && me.role === 'master'" />
       <UsersView v-else-if="tab === 'users' && me.role === 'master'" />
     </div>
   </main>
@@ -78,6 +89,9 @@ main {
   margin-bottom: 24px;
 }
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   background: transparent;
   color: var(--muted);
   border: none;
@@ -87,6 +101,9 @@ main {
   font-weight: 500;
   padding: 10px 14px;
   border-bottom: 2px solid transparent;
+}
+.tab:hover {
+  color: var(--fg);
 }
 .tab.active {
   color: var(--fg);

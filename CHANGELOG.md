@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
   - **Audit** — the trail of every agent tool call (time / tool / result / caller
     hash) from `dist/audit.log` (`readRecentAudit`), with tool filter, OK/error
     filter, sortable columns, and pagination.
+  - Console prefixes render in a fixed-width, right-aligned column (txAdmin-style)
+    with a monospace family; tab nav gained icons and Monitor is the master's
+    default landing tab.
 - **Workflow MCP prompts**: `debug-resource` (state → restart → wait_for_console
   → scan_errors → read → fix → verify loop) and `add-db-table` (schema → confirm
   → oxmysql_migrate → verify → parameterised code).
