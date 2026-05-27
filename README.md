@@ -35,6 +35,20 @@ FiveM resource that exposes a safe, local **MCP** (Model Context Protocol) tool 
    ```
    Paste into `~/.claude.json` under `"mcpServers"` (or project `.mcp.json`). Token is auto-generated and persisted to `dist/.agent_token`.
 
+   **MCP clients that only speak stdio** (no HTTP transport support) can use the bundled shim at `dist/mcp-stdio.js`:
+   ```json
+   "agent_api": {
+     "type": "stdio",
+     "command": "node",
+     "args": ["<resource path>/dist/mcp-stdio.js"],
+     "env": {
+       "AGENT_API_URL": "http://127.0.0.1:30120/agent_api/mcp",
+       "AGENT_API_TOKEN": "<generated token>"
+     }
+   }
+   ```
+   The shim is a ~100-line stdio↔HTTP bridge; behaviour is identical to the HTTP route.
+
 4. **Grant ACE rights** so lifecycle tools can issue console commands. Add to `server.cfg`:
    ```cfg
    add_ace resource.agent_api command.ensure  allow
