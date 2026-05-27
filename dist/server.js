@@ -6342,6 +6342,287 @@ function registerRefreshResources() {
   });
 }
 
+// src/server/players/registry.ts
+var sessions = /* @__PURE__ */ new Map();
+function now() {
+  return Date.now();
+}
+function readLicense(serverId) {
+  const n = GetNumPlayerIdentifiers(String(serverId));
+  for (let i = 0; i < n; i++) {
+    const id = GetPlayerIdentifier(String(serverId), i);
+    if (id && id.startsWith("license:")) return id;
+  }
+  return GetPlayerIdentifier(String(serverId), 0) ?? `unknown:${serverId}`;
+}
+function addOptIn(serverId, ttlSeconds) {
+  const license = readLicense(serverId);
+  const name = GetPlayerName(String(serverId)) ?? `player_${serverId}`;
+  const t = now();
+  const session = {
+    serverId,
+    license,
+    name,
+    optedInAt: t,
+    expiresAt: t + ttlSeconds * 1e3
+  };
+  sessions.set(serverId, session);
+  return session;
+}
+function removeOptIn(serverId) {
+  return sessions.delete(serverId);
+}
+function getOptIn(serverId) {
+  const s = sessions.get(serverId);
+  if (!s) return null;
+  if (s.expiresAt < now()) {
+    sessions.delete(serverId);
+    return null;
+  }
+  return s;
+}
+function listOptedIn() {
+  const t = now();
+  for (const [id, s] of sessions) {
+    if (s.expiresAt < t) sessions.delete(id);
+  }
+  return [...sessions.values()];
+}
+function dropPlayer(serverId) {
+  sessions.delete(serverId);
+}
+
+// src/server/players/subjects.ts
+var subjects = /* @__PURE__ */ new Map();
+function addSubject(serverId, max) {
+  if (!getOptIn(serverId)) {
+    return err("PLAYER_NOT_OPTED_IN", `Player ${serverId} has not opted in.`);
+  }
+  if (subjects.has(serverId)) return ok(true);
+  if (subjects.size >= max) {
+    return err("SUBJECT_LIMIT_REACHED", `Active subject pool is full (${max}).`);
+  }
+  subjects.set(serverId, Date.now());
+  return ok(true);
+}
+function removeSubject(serverId) {
+  return subjects.delete(serverId);
+}
+function isSubject(serverId) {
+  return subjects.has(serverId);
+}
+function listSubjects() {
+  for (const id of subjects.keys()) {
+    if (!getOptIn(id)) subjects.delete(id);
+  }
+  return [...subjects.keys()];
+}
+function dropPlayer2(serverId) {
+  subjects.delete(serverId);
+}
+
+// src/server/players/probes.ts
+var import_node_crypto3 = require("node:crypto");
+var pending = /* @__PURE__ */ new Map();
+function installProbeListener() {
+  onNet("agent_api:probe:result", (payload) => {
+    if (!payload || typeof payload.probeId !== "string") return;
+    const cb = pending.get(payload.probeId);
+    if (cb) cb(payload);
+  });
+}
+async function callProbe(serverId, name, args, timeoutMs) {
+  const probeId = (0, import_node_crypto3.randomBytes)(8).toString("hex");
+  return new Promise((resolve2) => {
+    const timer = setTimeout(() => {
+      pending.delete(probeId);
+      resolve2(err("CLIENT_PROBE_TIMEOUT", `Probe ${name} timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    pending.set(probeId, (result) => {
+      clearTimeout(timer);
+      pending.delete(probeId);
+      if (result.ok) resolve2(ok(result.data));
+      else resolve2(err("INTERNAL", result.error));
+    });
+    emitNet(`agent_api:probe:${name}`, serverId, probeId, args ?? {});
+  });
+}
+
+// src/server/players/events.ts
+var listeners = /* @__PURE__ */ new Set();
+var registeredEvents = /* @__PURE__ */ new Set();
+function ensureNetHandler(event) {
+  if (registeredEvents.has(event)) return;
+  registeredEvents.add(event);
+  onNet(event, (...args) => {
+    const source = globalThis.source ?? 0;
+    const matched = [];
+    for (const l of listeners) {
+      if (l.event !== event) continue;
+      if (l.fromSubject !== void 0 && l.fromSubject !== source) continue;
+      matched.push(l);
+    }
+    for (const l of matched) {
+      clearTimeout(l.timer);
+      listeners.delete(l);
+      l.resolve({ from: source, args });
+    }
+  });
+}
+function waitForClientEvent(event, timeoutMs, fromSubject) {
+  ensureNetHandler(event);
+  return new Promise((resolve2) => {
+    const timer = setTimeout(() => {
+      listeners.delete(listener);
+      resolve2(null);
+    }, timeoutMs);
+    const listener = fromSubject === void 0 ? { event, resolve: resolve2, timer } : { event, fromSubject, resolve: resolve2, timer };
+    listeners.add(listener);
+  });
+}
+
+// src/server/tools/players.ts
+var SubjectInput = external_exports.object({ serverId: external_exports.number().int().min(1) }).strict();
+var ProbeNameSchema = external_exports.enum(["entity_basic", "ped_status", "player_meta", "inventory_snap"]);
+function registerListPlayers() {
+  register({
+    name: "list_players",
+    description: "List players who have opted in via /agent_test_optin (with TTL countdown).",
+    input: external_exports.object({}).strict(),
+    handler: async () => {
+      const now2 = Date.now();
+      const opted = listOptedIn().map((s) => {
+        const secondsLeft = Math.max(0, Math.floor((s.expiresAt - now2) / 1e3));
+        return Object.assign({}, s, { secondsLeft, isActiveSubject: isSubject(s.serverId) });
+      });
+      return ok({
+        optedIn: opted,
+        activeSubjects: listSubjects()
+      });
+    }
+  });
+}
+function registerRegisterTestSubject() {
+  register({
+    name: "register_test_subject",
+    description: "Move an opted-in player into the active test-subject pool. Limited by agent_api_test_max_subjects convar.",
+    input: SubjectInput,
+    handler: async (input, ctx) => {
+      const res = addSubject(input.serverId, ctx.convars.testMaxSubjects);
+      if (!res.ok) return res;
+      const session = getOptIn(input.serverId);
+      return ok({ subject: session });
+    }
+  });
+}
+function registerUnregisterTestSubject() {
+  register({
+    name: "unregister_test_subject",
+    description: "Remove a player from the active subject pool. Opt-in session is preserved.",
+    input: SubjectInput,
+    handler: async (input) => {
+      const removed = removeSubject(input.serverId);
+      return ok({ removed });
+    }
+  });
+}
+function ensureActiveSubject(serverId) {
+  if (!getOptIn(serverId)) {
+    return err("PLAYER_NOT_OPTED_IN", `Player ${serverId} has not opted in.`);
+  }
+  if (!isSubject(serverId)) {
+    return err(
+      "PLAYER_NOT_OPTED_IN",
+      `Player ${serverId} is opted in but not registered as an active subject. Call register_test_subject first.`
+    );
+  }
+  return ok(true);
+}
+function registerGetPlayerState() {
+  register({
+    name: "get_player_state",
+    description: "Run client-side probes on a registered test subject and return collected snapshots.",
+    input: external_exports.object({
+      serverId: external_exports.number().int().min(1),
+      probes: external_exports.array(ProbeNameSchema).min(1).optional(),
+      timeoutMs: external_exports.number().int().min(100).max(1e4).optional()
+    }).strict(),
+    handler: async (input) => {
+      const guard = ensureActiveSubject(input.serverId);
+      if (!guard.ok) return guard;
+      const probes = input.probes ?? ["entity_basic", "ped_status", "player_meta"];
+      const timeout = input.timeoutMs ?? 2e3;
+      const results = {};
+      for (const probe of probes) {
+        const r = await callProbe(input.serverId, probe, {}, timeout);
+        results[probe] = r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
+      }
+      return ok({ serverId: input.serverId, results });
+    }
+  });
+}
+function registerTriggerClientEvent() {
+  register({
+    name: "trigger_client_event",
+    description: "Send an arbitrary net event to one registered test subject. The agent must already know what event the target resource expects.",
+    input: external_exports.object({
+      serverId: external_exports.number().int().min(1),
+      event: external_exports.string().min(1),
+      args: external_exports.array(external_exports.unknown()).optional()
+    }).strict(),
+    handler: async (input) => {
+      const guard = ensureActiveSubject(input.serverId);
+      if (!guard.ok) return guard;
+      emitNet(input.event, input.serverId, ...input.args ?? []);
+      return ok({ sent: { serverId: input.serverId, event: input.event, args: input.args ?? [] } });
+    }
+  });
+}
+function registerSendChat() {
+  register({
+    name: "send_chat",
+    description: "Push a single chat message to one registered test subject via chat:addMessage.",
+    input: external_exports.object({
+      serverId: external_exports.number().int().min(1),
+      text: external_exports.string().min(1).max(1024),
+      color: external_exports.tuple([external_exports.number(), external_exports.number(), external_exports.number()]).optional()
+    }).strict(),
+    handler: async (input) => {
+      const guard = ensureActiveSubject(input.serverId);
+      if (!guard.ok) return guard;
+      emitNet("chat:addMessage", input.serverId, {
+        color: input.color ?? [180, 180, 240],
+        args: ["[agent_api]", input.text]
+      });
+      return ok({ sent: true });
+    }
+  });
+}
+function registerWaitForClientEvent() {
+  register({
+    name: "wait_for_client_event",
+    description: "Block until a matching client net event is received (optionally only from one subject) or the timeout elapses.",
+    input: external_exports.object({
+      event: external_exports.string().min(1),
+      fromSubject: external_exports.number().int().min(1).optional(),
+      timeoutMs: external_exports.number().int().min(100).max(6e4).optional()
+    }).strict(),
+    handler: async (input) => {
+      if (input.fromSubject !== void 0) {
+        const guard = ensureActiveSubject(input.fromSubject);
+        if (!guard.ok) return guard;
+      }
+      const result = await waitForClientEvent(
+        input.event,
+        input.timeoutMs ?? 5e3,
+        input.fromSubject
+      );
+      if (!result) return err("TIMEOUT", `No matching ${input.event} within timeout.`);
+      return ok(result);
+    }
+  });
+}
+
 // src/server/tools/runCommand.ts
 var Input3 = external_exports.object({
   command: external_exports.string().min(1),
@@ -6473,6 +6754,70 @@ function registerWriteFile() {
   });
 }
 
+// src/server/players/optin.ts
+function chat(serverId, color, text) {
+  emitNet("chat:addMessage", serverId, {
+    color,
+    args: ["[agent_api]", text]
+  });
+}
+function installOptInCommands(ttlSeconds) {
+  RegisterCommand(
+    "agent_test_optin",
+    (source) => {
+      if (source === 0) {
+        console.log("[agent_api] /agent_test_optin must be run by a player, not the console.");
+        return;
+      }
+      const session = addOptIn(source, ttlSeconds);
+      const minutes = Math.round(ttlSeconds / 60);
+      chat(
+        source,
+        [120, 200, 120],
+        `You are now a test subject for ${minutes} minutes. Type /agent_test_optout to revoke.`
+      );
+      console.log(
+        `[agent_api] opt-in: serverId=${source} name=${session.name} expires=${new Date(session.expiresAt).toISOString()}`
+      );
+    },
+    false
+  );
+  RegisterCommand(
+    "agent_test_optout",
+    (source) => {
+      if (source === 0) return;
+      const had = removeOptIn(source);
+      dropPlayer2(source);
+      if (had) {
+        chat(source, [200, 120, 120], "Test subject opt-out confirmed.");
+        console.log(`[agent_api] opt-out: serverId=${source}`);
+      }
+    },
+    false
+  );
+  RegisterCommand(
+    "agent_test_status",
+    (source) => {
+      if (source === 0) return;
+      const s = getOptIn(source);
+      if (!s) {
+        chat(source, [200, 200, 120], "You are NOT a test subject.");
+      } else {
+        const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1e3));
+        chat(source, [120, 200, 200], `Opted in. ${left}s remaining.`);
+      }
+    },
+    false
+  );
+  on("playerDropped", () => {
+    const source = globalThis.source;
+    if (typeof source === "number") {
+      dropPlayer(source);
+      dropPlayer2(source);
+    }
+  });
+}
+
 // src/server/index.ts
 var VERSION = "0.0.1";
 var RESOURCE_NAME = GetCurrentResourceName();
@@ -6495,11 +6840,20 @@ function main() {
   registerStopResource();
   registerRestartResource();
   registerRunCommand();
+  registerListPlayers();
+  registerRegisterTestSubject();
+  registerUnregisterTestSubject();
+  registerGetPlayerState();
+  registerTriggerClientEvent();
+  registerSendChat();
+  registerWaitForClientEvent();
+  installOptInCommands(convars.testSessionTtlSeconds);
+  installProbeListener();
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer }
   });
-  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M4)`);
+  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M5)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 main();

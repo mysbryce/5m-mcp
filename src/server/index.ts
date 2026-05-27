@@ -14,9 +14,20 @@ import {
 import { registerListResources } from './tools/listResources';
 import { registerReadFile } from './tools/readFile';
 import { registerRefreshResources } from './tools/refreshResources';
+import {
+  registerGetPlayerState,
+  registerListPlayers,
+  registerRegisterTestSubject,
+  registerSendChat,
+  registerTriggerClientEvent,
+  registerUnregisterTestSubject,
+  registerWaitForClientEvent,
+} from './tools/players';
 import { registerRunCommand } from './tools/runCommand';
 import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
+import { installOptInCommands } from './players/optin';
+import { installProbeListener } from './players/probes';
 
 const VERSION = '0.0.1';
 const RESOURCE_NAME = GetCurrentResourceName();
@@ -42,13 +53,23 @@ function main(): void {
   registerStopResource();
   registerRestartResource();
   registerRunCommand();
+  registerListPlayers();
+  registerRegisterTestSubject();
+  registerUnregisterTestSubject();
+  registerGetPlayerState();
+  registerTriggerClientEvent();
+  registerSendChat();
+  registerWaitForClientEvent();
+
+  installOptInCommands(convars.testSessionTtlSeconds);
+  installProbeListener();
 
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer },
   });
 
-  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M4)`);
+  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M5)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 

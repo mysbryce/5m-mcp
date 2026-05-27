@@ -1,6 +1,8 @@
+import { installClientProbes } from './events';
+
 const RESOURCE_NAME = GetCurrentResourceName();
 const VERSION = '0.0.1';
 
-console.log(`[${RESOURCE_NAME}] client up — v${VERSION}`);
+installClientProbes();
 
-export {};
+console.log(`[${RESOURCE_NAME}] client up — v${VERSION} (M5)`);

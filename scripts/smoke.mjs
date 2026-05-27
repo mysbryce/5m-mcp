@@ -135,6 +135,20 @@ async function main() {
   );
 
   console.log('');
+  console.log('-- live player testing (no opted-in subject expected) --');
+  summarize('list_players', await post('list_players'));
+  summarize(
+    'reject get_player_state on non-subject',
+    await post('get_player_state', { serverId: 999 }),
+    { expectFail: true },
+  );
+  summarize(
+    'reject register on non-opted-in',
+    await post('register_test_subject', { serverId: 999 }),
+    { expectFail: true },
+  );
+
+  console.log('');
   console.log('-- MCP transport --');
   summarizeRpc(
     'mcp initialize',
