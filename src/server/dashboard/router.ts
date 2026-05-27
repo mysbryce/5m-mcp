@@ -1,4 +1,4 @@
-import { DASHBOARD_HTML } from './html';
+import { dashboardHtml } from './html';
 import {
   createUser,
   deleteUser,
@@ -52,7 +52,7 @@ export async function handleDashboard(
 
   // Serve the SPA
   if (sub === '' || sub === '/' || (!sub.startsWith('/api') && method === 'GET')) {
-    return { status: 200, headers: HTML_HEADERS, body: DASHBOARD_HTML };
+    return { status: 200, headers: HTML_HEADERS, body: dashboardHtml() };
   }
 
   let parsed: Record<string, unknown> = {};

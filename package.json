@@ -37,7 +37,10 @@
     "docs:install": "cd docs && npm install",
     "docs:dev": "cd docs && npm run dev",
     "docs:build": "cd docs && npm run build",
-    "docs:deploy": "npm run docs:build && gh-pages -d docs/out --dotfiles -t"
+    "docs:deploy": "npm run docs:build && gh-pages -d docs/out --dotfiles -t",
+    "dashboard:install": "cd dashboard && npm install",
+    "dashboard:dev": "cd dashboard && npm run dev",
+    "dashboard:build": "cd dashboard && npm run build"
   },
   "devDependencies": {
     "@citizenfx/client": "^2.0.29753-1",

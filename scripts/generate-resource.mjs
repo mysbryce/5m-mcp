@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, rmSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  copyFileSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -57,6 +64,16 @@ log('copied fxmanifest.lua');
 for (const name of requiredDist) {
   copyFileSync(join(repoRoot, 'dist', name), join(outDir, 'dist', name));
   log(`copied dist/${name}`);
+}
+
+// dashboard single-file build (optional)
+const dashSrc = join(repoRoot, 'dist', 'dashboard', 'index.html');
+if (existsSync(dashSrc)) {
+  mkdirSync(join(outDir, 'dist', 'dashboard'), { recursive: true });
+  copyFileSync(dashSrc, join(outDir, 'dist', 'dashboard', 'index.html'));
+  log('copied dist/dashboard/index.html');
+} else {
+  log('skipped dashboard (run `npm run dashboard:build` to include it)');
 }
 
 // minimal README

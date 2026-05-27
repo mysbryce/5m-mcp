@@ -12,6 +12,7 @@
     "node_modules/**",
     ".claude/**",
     "docs/**",
+    "dashboard/**",
     "*.md",
     "**/*.md",
     "**/*.mdx",
