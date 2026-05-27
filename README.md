@@ -204,14 +204,16 @@ Reflective dispatch helpers — `csvSet`, `isAllowed`, `listCallable`, `safeSeri
 
 ## Optional: UI screenshot capability
 
-For `screenshot_nui` to work, install Chromium for Playwright once (~150 MB):
+`screenshot_nui` uses Playwright's CDP client to attach to FiveM's existing CEF browser at `http://localhost:13172` and screenshot a live NUI page in-place. **No headless Chromium needs to be installed** — we don't launch a new browser, we connect to the one already running inside FiveM.
+
+The Playwright npm package alone is enough (~16 MB):
 
 ```sh
 cd <agent_api folder>
-npx playwright install chromium
+npm install
 ```
 
-The tool captures the FiveM CEF DevTools view of the active NUI surface to `dist/screenshots/`. Always pair with `delete_screenshot` after viewing.
+The tool saves to `dist/screenshots/`. Always pair with `delete_screenshot` after viewing. If FiveM was launched without the CEF DevTools port exposed, the tool reports `no CEF pages exposed`.
 
 ## Dev
 

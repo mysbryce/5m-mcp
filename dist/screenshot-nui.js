@@ -32,19 +32,30 @@ async function loadChromium() {
     return pw.chromium;
   } catch {
     throw new Error(
-      "playwright is not installed. Run `npm install playwright && npx playwright install chromium` in the agent_api resource folder."
+      "playwright is not installed. Run `npm install playwright` in the agent_api folder."
     );
   }
 }
 function report(payload) {
   process.stdout.write(JSON.stringify(payload) + "\n");
 }
+function isLikelyNui(url) {
+  const u = url.toLowerCase();
+  if (u.startsWith("devtools://")) return false;
+  if (u.startsWith("chrome://")) return false;
+  if (u === "about:blank") return false;
+  if (u.startsWith("nui://")) return true;
+  if (u.startsWith("https://cfx-nui-")) return true;
+  if (u.startsWith("http://cfx-nui-")) return true;
+  return true;
+}
 async function main() {
   const outputPath = process.argv[2];
-  const devtoolsUrl = process.argv[3] ?? "http://localhost:13172/";
+  const cdpUrl = process.argv[3] ?? "http://localhost:13172";
   const timeoutMs = Number(process.argv[4] ?? "15000");
+  const targetFilter = (process.argv[5] ?? "").toLowerCase();
   if (!outputPath) {
-    report({ ok: false, error: "usage: screenshot-nui <outputPath> [devtoolsUrl] [timeoutMs]" });
+    report({ ok: false, error: "usage: screenshot-nui <outputPath> [cdpUrl] [timeoutMs] [targetFilter]" });
     process.exit(2);
   }
   try {
@@ -60,42 +71,46 @@ async function main() {
     report({ ok: false, error: e.message });
     process.exit(3);
   }
+  const overallTimer = setTimeout(() => {
+    report({ ok: false, error: `timed out after ${timeoutMs}ms` });
+    process.exit(6);
+  }, timeoutMs);
+  overallTimer.unref();
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
-    const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
-    const indexPage = await ctx.newPage();
-    indexPage.setDefaultTimeout(timeoutMs);
-    await indexPage.goto(devtoolsUrl, { waitUntil: "domcontentloaded" });
-    const links = await indexPage.locator("a").all();
-    if (links.length === 0) {
+    browser = await chromium.connectOverCDP(cdpUrl);
+    const allPages = [];
+    for (const ctx of browser.contexts()) {
+      for (const p of ctx.pages()) allPages.push(p);
+    }
+    if (allPages.length === 0) {
       report({
         ok: false,
-        error: `no <a> found at ${devtoolsUrl} \u2014 is the FiveM CEF DevTools enabled? Run \`+set ui_useDirectInput true\` and \`+set ui_devtools true\` on server start, or check the running clients have NUI surfaces.`
+        error: `no CEF pages exposed by ${cdpUrl}. Ensure FiveM was started with the CEF DevTools port (default 13172) and that an NUI surface is live.`
       });
       process.exit(4);
     }
-    const href = await links[0].getAttribute("href");
-    if (!href) {
-      report({ ok: false, error: "first <a> has no href." });
-      process.exit(4);
+    let chosen;
+    if (targetFilter) {
+      chosen = allPages.find((p) => p.url().toLowerCase().includes(targetFilter));
     }
-    const target = new URL(href, devtoolsUrl).toString();
-    const devPage = await ctx.newPage();
-    devPage.setDefaultTimeout(timeoutMs);
-    await devPage.goto(target, { waitUntil: "domcontentloaded" });
-    await devPage.waitForLoadState("networkidle", { timeout: timeoutMs }).catch(() => void 0);
-    await devPage.waitForTimeout(800);
-    const buffer = await devPage.screenshot({ fullPage: true, type: "png" });
+    if (!chosen) chosen = allPages.find((p) => isLikelyNui(p.url()));
+    if (!chosen) chosen = allPages[0];
+    const url = chosen.url();
+    const title = await chosen.title().catch(() => "");
+    const buffer = await chosen.screenshot({ fullPage: true, type: "png" });
     (0, import_node_fs.writeFileSync)(outputPath, buffer);
+    const bytes = (0, import_node_fs.statSync)(outputPath).size ?? buffer.length;
+    clearTimeout(overallTimer);
     report({
       ok: true,
       path: outputPath,
-      bytes: buffer.length,
-      devtoolsUrl,
-      target
+      bytes,
+      target: { url, title },
+      candidates: allPages.map((p) => p.url())
     });
   } catch (e) {
+    clearTimeout(overallTimer);
     report({ ok: false, error: e instanceof Error ? e.message : String(e) });
     process.exit(5);
   } finally {
