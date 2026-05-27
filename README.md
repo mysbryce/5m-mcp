@@ -1,35 +1,215 @@
 # agent_api
 
-FiveM resource that exposes safe local MCP tools so an agent can develop FiveM resources against a live server.
+FiveM resource that exposes a safe, local **MCP** (Model Context Protocol) tool surface so an agent can develop, debug, and live-test FiveM resources against a running server.
 
-See [PLAN.md](./PLAN.md) for the full design.
+- Filesystem ops (read / write / scaffold) inside a sandboxed write root
+- Resource lifecycle (`ensure`, `start`, `stop`, `restart`, `refresh`) with console capture
+- Live player testing via opt-in chat command + client-side probes
+- **Dynamic client-native dispatch** — agent can call any FiveM client native on an opted-in player
+- Bundled framework bridges: **ESX**, **ox_lib**, **oxmysql** (with reflective method dispatch)
+- HTTP MCP transport (Claude Code talks directly) + stdio shim for other clients
 
-## Status
+> Single resource. No external sidecar. Drop folder → ensure → ready.
 
-Pre-alpha. M0 (scaffold) only.
+---
+
+## Install
+
+1. **Drop the folder** at `<server-data>/resources/[agent]/agent_api/` (or anywhere FiveM picks it up). Use the packaged drop-in folder from `npm run generate:resource` (output: `out/agent_api/`), or junction the dev repo with `pwsh scripts/dev-link.ps1 -ServerRoot <path>`.
+
+2. **Start it** from the FiveM server console:
+   ```
+   refresh
+   ensure agent_api
+   ```
+
+3. **Copy the MCP config** that the resource prints to console on first start:
+   ```
+   [agent_api] Add this to your Claude Code MCP config:
+   [agent_api]
+   [agent_api]   "agent_api": {
+   [agent_api]     "type": "http",
+   [agent_api]     "url": "http://127.0.0.1:30120/agent_api/mcp",
+   [agent_api]     "headers": { "x-agent-token": "<generated token>" }
+   [agent_api]   }
+   ```
+   Paste into `~/.claude.json` under `"mcpServers"` (or project `.mcp.json`). Token is auto-generated and persisted to `dist/.agent_token`.
+
+4. **Grant ACE rights** so lifecycle tools can issue console commands. Add to `server.cfg`:
+   ```cfg
+   add_ace resource.agent_api command.ensure  allow
+   add_ace resource.agent_api command.start   allow
+   add_ace resource.agent_api command.stop    allow
+   add_ace resource.agent_api command.restart allow
+   add_ace resource.agent_api command.refresh allow
+   add_ace resource.agent_api command.say     allow
+   ```
+
+5. **Verify** from the repo:
+   ```sh
+   npm run smoke
+   ```
+   Expects 27 OK lines covering health, read-only ops, lifecycle, MCP transport, and live-player probes.
+
+---
+
+## Configuration (convars)
+
+All convars are read at start-up. Most have safe defaults.
+
+```cfg
+# Core
+set agent_api_token                       ""                # blank = auto-generate
+set agent_api_readonly                    false             # gate every mutating tool
+set agent_api_root                        "resources/[agent]"
+set agent_api_allow_write_paths           ""                # csv, extra write roots
+set agent_api_allow_control_paths         ""                # csv, extra lifecycle roots
+set agent_api_console_buffer_lines        2000
+set agent_api_max_file_bytes              2097152           # 2 MB
+set agent_api_rate_per_minute             120
+
+# Live client testing
+set agent_api_test_session_ttl_seconds    1800              # 30 min
+set agent_api_test_max_subjects           4
+set agent_api_client_blocked_natives      ""                # csv, e.g. "Quit,SetPlayerInvincible"
+
+# Plugins
+set agent_api_plugin_esx_enabled          auto              # auto | true | false
+set agent_api_plugin_oxlib_enabled        auto
+set agent_api_plugin_oxmysql_enabled      auto
+set agent_api_plugin_oxmysql_readonly     true              # SELECT only
+set agent_api_plugin_oxmysql_allow_statements "SELECT"
+set agent_api_plugin_esx_blocked_methods  ""                # csv
+set agent_api_plugin_oxlib_blocked_methods ""               # csv
+```
+
+---
+
+## Tool catalog
+
+All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, error: { code, message, details? } }`. Codes are stable enum strings (see `src/server/errors/codes.ts`).
+
+### Core (12)
+
+| Tool                  | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `health`              | Liveness probe + version + uptime                                         |
+| `list_resources`      | Every registered resource with state                                      |
+| `get_resource_state`  | One resource's state + path                                               |
+| `read_file`           | Read any file in the read sandbox; `offset`/`length` for windowed reads   |
+| `write_file`          | Write a file inside a configured write root; `createDirs:true` to mkdir -p |
+| `create_resource`     | Scaffold `fxmanifest.lua` + `server.lua` + `README.md`                    |
+| `refresh_resources`   | `refresh` + console capture window                                        |
+| `ensure_resource`     | `ensure <name>`, wait for state `started`, return logs (refuses self)     |
+| `start_resource`      | `start <name>`                                                            |
+| `stop_resource`       | `stop <name>`                                                             |
+| `restart_resource`    | `restart <name>`                                                          |
+| `run_command`         | Allowlisted console command (refresh / players / say / lifecycle verbs)   |
+| `tail_console`        | Recent ring-buffer lines, filterable by `since_ts` / `channel`            |
+
+### Live player testing (7) + client natives (2)
+
+| Tool                          | What it does                                                          |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `list_players`                | Opted-in players (TTL countdown + active-subject flag)                |
+| `register_test_subject`       | Add opted-in player to active pool (limited by convar)                |
+| `unregister_test_subject`     | Remove from active pool                                               |
+| `get_player_state`            | Run client probes: entity_basic, ped_status, player_meta, inventory_snap |
+| `trigger_client_event`        | Fire any net event at one subject                                     |
+| `send_chat`                   | Push a `chat:addMessage` line to one subject                          |
+| `wait_for_client_event`       | Block until matching net event (optional `fromSubject` filter)        |
+| `client_call_native`          | **Invoke any client native** on a subject. Arg tokens: `$ped`, `$player`, `$serverId`, `$vehicle`, `$lastVehicle`, `$coords`, `$heading`. Readonly verb gate (`Get/Has/Is/Does/Can/Will/Network`) + blocklist. |
+| `client_list_natives`         | Enumerate client globals (prefix-filterable) — discovery for `client_call_native` |
+
+#### Opt-in flow
+
+The player joins the server and types in chat:
+```
+/agent_test_optin
+```
+Server prints `[agent_api] opt-in: serverId=...`. Default TTL 30 min. `/agent_test_optout` and disconnect both clear the session immediately.
+
+#### Example: teleport + verify
+
+```jsonc
+// 1. get current position
+client_call_native { serverId: 1, native: "GetEntityCoords", args: ["$ped", true] }
+// → { result: [34.35, -1363.19, 29.37] }
+
+// 2. teleport
+client_call_native {
+  serverId: 1,
+  native: "SetEntityCoords",
+  args: ["$ped", 64.35, -1333.19, 29.37, false, false, false, true]
+}
+
+// 3. read again, verify
+client_call_native { serverId: 1, native: "GetEntityCoords", args: ["$ped", true] }
+// → { result: [64.37, -1333.19, 29.35] }
+```
+
+### Plugins
+
+`list_plugins` reports which framework bridges loaded. Each plugin auto-detects via `GetResourceState` and skips itself if its target resource is missing.
+
+| Plugin    | Tools                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| **esx**   | `esx_list_players`, `esx_get_player`, `esx_add_money`, `esx_set_job`, `esx_list_shared_methods`, `esx_list_player_methods`, `esx_call_shared`, `esx_call_player` |
+| **oxlib** | `oxlib_notify`, `oxlib_trigger_client_callback`, `oxlib_check_dependency`, `oxlib_list_methods`, `oxlib_call` |
+| **oxmysql** | `oxmysql_query`, `oxmysql_scalar`, `oxmysql_execute` (readonly + allow-statements gates)         |
+
+#### Adding a plugin
+
+1. Create `src/server/plugins/<name>/index.ts` exporting a `Plugin`:
+   ```ts
+   export const myPlugin: Plugin = {
+     name: 'myname',
+     description: 'one-line',
+     detect: () => isResourceStarted('target_resource'),
+     install: ({ register, convars }) => {
+       register({
+         name: 'myname_doit',
+         description: '...',
+         input: z.object({...}).strict(),
+         handler: async (input, ctx) => ok({...}),
+       });
+     },
+   };
+   ```
+2. Push it into `ALL_PLUGINS` in `src/server/plugins/index.ts`.
+3. `npm run build && restart agent_api`. The loader handles detection, opt-out (`agent_api_plugin_<name>_enabled false`), and status logging.
+
+Reflective dispatch helpers — `csvSet`, `isAllowed`, `listCallable`, `safeSerialize` — live in `src/server/plugins/dynamic.ts` for plugins that want generic call surfaces.
+
+---
 
 ## Dev
 
 ```sh
 npm install
-npm run watch       # rebuilds dist/*.js on save
-npm run typecheck   # tsc --noEmit
+npm run watch                  # rebuild dist/*.js on save
+npm run typecheck              # tsc --noEmit
+npm run lint                   # oxlint
+npm run fmt                    # oxfmt (2 space, single quote, semi, lf)
+npm run check                  # typecheck + lint + fmt:check
+npm run smoke                  # hit every tool against the live server
+npm run generate:resource      # build + assemble drop-in folder at out/agent_api/
 ```
 
-Drop the folder into `resources/[agent]/agent_api` and `ensure agent_api`.
+`scripts/dev-link.ps1` creates an NTFS junction from a FiveM server's `resources/[agent]/agent_api` to this repo so `restart agent_api` always picks up the latest `dist/*.js`.
 
-## ACE permissions
+---
 
-Lifecycle tools (`ensure/start/stop/restart/refresh/say`) call FiveM console
-commands, which require ACE rights for the resource. Add to `server.cfg`:
+## Security notes
 
-```cfg
-add_ace resource.agent_api command.ensure  allow
-add_ace resource.agent_api command.start   allow
-add_ace resource.agent_api command.stop    allow
-add_ace resource.agent_api command.restart allow
-add_ace resource.agent_api command.refresh allow
-add_ace resource.agent_api command.say     allow
-```
+- Token rotation: delete `dist/.agent_token`, restart the resource.
+- Self-targeting `ensure/start/stop/restart` for `agent_api` itself is hard-refused — the FiveM Mono runtime SIGSEGVs if you tear a script env down while it's serving HTTP. Use the server console instead.
+- Path sandbox blocks `.env`, `txData`, `database`, `cache` segments *inside* a resource and refuses `..` / absolute paths. Write requires the resource to live under a configured `agent_api_root` / `agent_api_allow_write_paths`.
+- The `oxmysql` plugin defaults to readonly + SELECT only. Open it explicitly via `agent_api_plugin_oxmysql_readonly false` and an expanded `agent_api_plugin_oxmysql_allow_statements` list.
+- `agent_api_readonly true` flips a single switch that closes every plugin's mutating verb (write_file is still readable, ESX add_money rejects, dynamic dispatch refuses anything not starting with a read verb, etc.).
 
-The token bootstrap banner reprints this block on every fresh install.
+---
+
+## Design
+
+See [PLAN.md](./PLAN.md) for the full architecture, milestone breakdown, and threat model.

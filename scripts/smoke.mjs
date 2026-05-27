@@ -69,11 +69,15 @@ function summarizeRpc(label, result, opts = {}) {
       : '';
   const suffix = expectFail ? ' (expected reject)' : '';
   console.log(`[${tag}] ${pad(label)} (${result.status})${detail}${suffix}`);
+  if (passed) tally.pass++;
+  else (tally.fail++, tally.failures.push(label));
   if (process.env.VERBOSE) {
     console.log(fmt(body));
     console.log('');
   }
 }
+
+const tally = { pass: 0, fail: 0, failures: [] };
 
 function summarize(label, result, opts = {}) {
   const ok = result.body?.ok === true;
@@ -83,6 +87,8 @@ function summarize(label, result, opts = {}) {
   const detail = ok ? '' : ` ${result.body?.error?.code ?? '?'}`;
   const suffix = expectFail ? ' (expected reject)' : '';
   console.log(`[${tag}] ${pad(label)} (${result.status})${detail}${suffix}`);
+  if (passed) tally.pass++;
+  else (tally.fail++, tally.failures.push(label));
   if (process.env.VERBOSE) {
     console.log(fmt(result.body));
     console.log('');
@@ -179,6 +185,12 @@ async function main() {
   summarizeRpc('mcp unknown method', await rpc('does_not_exist'), { expectFail: true });
 
   console.log('');
+  const total = tally.pass + tally.fail;
+  console.log(`Result: ${tally.pass}/${total} passed`);
+  if (tally.fail) {
+    console.log(`Failures:\n  - ${tally.failures.join('\n  - ')}`);
+    process.exitCode = 1;
+  }
   console.log('Tip: set VERBOSE=1 to see full envelopes.');
 }
 
