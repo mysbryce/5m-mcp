@@ -113,5 +113,42 @@ export const oxMysqlPlugin: Plugin = {
         }
       },
     });
+
+    register({
+      name: 'oxmysql_schema',
+      description:
+        'Introspect the current database schema (read-only): tables with their columns ' +
+        '(name, type, key, nullable, default). Pass `table` to scope to one table. Use before ' +
+        'writing data-layer code so queries match the real schema.',
+      input: z.object({ table: z.string().optional() }).strict(),
+      handler: async (input: { table?: string }) => {
+        try {
+          const where = input.table ? 'AND TABLE_NAME = ?' : '';
+          const params = input.table ? [input.table] : [];
+          const rows = (await oxmysql.query(
+            `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, COLUMN_KEY, IS_NULLABLE, COLUMN_DEFAULT
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() ${where}
+             ORDER BY TABLE_NAME, ORDINAL_POSITION`,
+            params,
+          )) as Array<Record<string, unknown>>;
+
+          const tables: Record<string, unknown[]> = {};
+          for (const r of rows) {
+            const t = String(r.TABLE_NAME);
+            (tables[t] ??= []).push({
+              column: r.COLUMN_NAME,
+              type: r.COLUMN_TYPE,
+              key: r.COLUMN_KEY || null,
+              nullable: r.IS_NULLABLE === 'YES',
+              default: r.COLUMN_DEFAULT ?? null,
+            });
+          }
+          return ok({ tableCount: Object.keys(tables).length, tables });
+        } catch (e) {
+          return err('INTERNAL', e instanceof Error ? e.message : String(e));
+        }
+      },
+    });
   },
 };

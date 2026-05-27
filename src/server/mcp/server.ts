@@ -2,10 +2,11 @@ import { JsonRpcRequest, JsonRpcResponse, RpcErrorCode, rpcError, rpcSuccess } f
 import { dispatch, listToolDescriptors } from '../tools/registry';
 import { ToolContext } from '../tools/context';
 import { getPrompt, listPrompts } from './prompts';
+import { listResources, readResource } from './resources';
 import { injectedTexts } from '../dashboard/inject';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.3.0' };
+const SERVER_INFO = { name: 'agent_api', version: '0.4.0' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 
@@ -42,6 +43,7 @@ export async function handleMcpRequest(
         capabilities: {
           tools: { listChanged: false },
           prompts: { listChanged: false },
+          resources: { listChanged: false },
         },
         serverInfo: SERVER_INFO,
       });
@@ -67,6 +69,24 @@ export async function handleMcpRequest(
         for (const text of injectedTexts(req.params.name)) content.push({ type: 'text', text });
       }
       return rpcSuccess(id, { content, isError: !envelope.ok });
+    }
+
+    case 'resources/list':
+      return rpcSuccess(id, { resources: listResources() });
+
+    case 'resources/read': {
+      const params = req.params as { uri?: unknown } | undefined;
+      const uri = params && typeof params.uri === 'string' ? params.uri : null;
+      if (!uri) {
+        return rpcError(id, RpcErrorCode.INVALID_PARAMS, 'Missing resource uri.');
+      }
+      const resource = await readResource(uri);
+      if (!resource) {
+        return rpcError(id, RpcErrorCode.INVALID_PARAMS, `Unknown resource: ${uri}`);
+      }
+      return rpcSuccess(id, {
+        contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: resource.text }],
+      });
     }
 
     case 'prompts/list':

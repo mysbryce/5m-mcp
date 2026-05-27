@@ -112,6 +112,8 @@ set agent_api_plugin_oxlib_blocked_methods ""               # csv
 
 All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, error: { code, message, details? } }`. Codes are stable enum strings (see `src/server/errors/codes.ts`).
 
+The MCP server also exposes **resources** (`resources/list` + `resources/read`): `agent://console`, `agent://resources`, `agent://preferences`, `agent://skills` — read-only JSON snapshots a client can browse without a tool call.
+
 ### Core (12)
 
 | Tool                  | What it does                                                              |
@@ -130,7 +132,7 @@ All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, er
 | `run_command`         | Allowlisted console command (refresh / players / say / lifecycle verbs)   |
 | `tail_console`        | Recent ring-buffer lines, filterable by `since_ts` / `channel`            |
 
-### Navigation & editing (5)
+### Navigation, editing & debugging (9)
 
 | Tool                  | What it does                                                              |
 | --------------------- | ------------------------------------------------------------------------- |
@@ -138,7 +140,20 @@ All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, er
 | `find_files`          | Glob a resource (`server/**/*.lua`, `**/*.vue`) against the path relative to its root |
 | `search_code`         | Grep substring/regex → file/line/text; skips binaries; scope with `path`  |
 | `edit_file`           | Surgical str-replace (unique-match guard, `replaceAll`) — cheaper/safer than rewriting; same write gates as `write_file` |
+| `delete_file`         | Delete one file inside a write root (refuses directories / blocked segments) |
+| `move_file`           | Move/rename a file within a resource (`createDirs`, `overwrite`)          |
+| `get_resource_manifest` | Parse fxmanifest.lua → structured `{ fx_version, game, version, *_scripts, files, dependencies, … }` |
 | `wait_for_console`    | Block until a console line matches `pattern` (or timeout) — pairs with `ensure`/`restart` to catch the banner or an error |
+| `scan_errors`         | Scan the console for SCRIPT ERRORs / tracebacks / JS exceptions → structured `{ message, frames:[{resource,file,line}] }` |
+
+### NUI interaction (4) — drive the live UI over CDP
+
+| Tool                  | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `nui_eval`            | Run a JS expression in the live NUI and return its value; `resource` targets that iframe |
+| `nui_click`           | Click a DOM element by CSS selector                                      |
+| `nui_fill`            | Set an input/textarea value + dispatch `input`/`change` (Vue/React-safe) |
+| `nui_get`             | Read an element's text/value/rect/outerHTML                              |
 
 ### Live player testing (7) + client natives (2)
 
@@ -207,7 +222,7 @@ client_call_native { serverId: 1, native: "GetEntityCoords", args: ["$ped", true
 | --------- | -------------------------------------------------------------------------------------------------- |
 | **esx**   | `esx_list_players`, `esx_get_player`, `esx_add_money`, `esx_set_job`, `esx_list_shared_methods`, `esx_list_player_methods`, `esx_call_shared`, `esx_call_player` |
 | **oxlib** | `oxlib_notify`, `oxlib_trigger_client_callback`, `oxlib_check_dependency`, `oxlib_list_methods`, `oxlib_call` |
-| **oxmysql** | `oxmysql_query`, `oxmysql_scalar`, `oxmysql_execute` (readonly + allow-statements gates)         |
+| **oxmysql** | `oxmysql_query`, `oxmysql_scalar`, `oxmysql_execute` (readonly + allow-statements gates), `oxmysql_schema` (read-only information_schema introspection) |
 
 #### Adding a plugin
 

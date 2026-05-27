@@ -19,7 +19,8 @@ export type Skill = SkillMeta & { body: string };
 // Category → predicate over a tool name. Plugin tools are matched by prefix
 // because they are registered dynamically (esx_*, oxlib_*, oxmysql_*).
 const CATEGORY_TOOLS: Record<string, (name: string) => boolean> = {
-  write: (n) => ['write_file', 'edit_file', 'create_resource'].includes(n),
+  write: (n) =>
+    ['write_file', 'edit_file', 'create_resource', 'delete_file', 'move_file'].includes(n),
   lifecycle: (n) =>
     [
       'ensure_resource',
@@ -30,7 +31,16 @@ const CATEGORY_TOOLS: Record<string, (name: string) => boolean> = {
       'run_command',
     ].includes(n),
   scaffold: (n) => ['scaffold_fivem_resource_workflow', 'create_resource'].includes(n),
-  ui: (n) => ['screenshot_nui', 'delete_screenshot', 'run_shell'].includes(n),
+  ui: (n) =>
+    [
+      'screenshot_nui',
+      'delete_screenshot',
+      'run_shell',
+      'nui_click',
+      'nui_fill',
+      'nui_eval',
+      'nui_get',
+    ].includes(n),
   native: (n) =>
     [
       'client_call_native',

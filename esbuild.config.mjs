@@ -46,6 +46,12 @@ const targets = [
     outfile: 'dist/screenshot-nui.js',
     banner: { js: '#!/usr/bin/env node' },
   },
+  {
+    ...common,
+    entryPoints: ['src/bin/nui-interact.ts'],
+    outfile: 'dist/nui-interact.js',
+    banner: { js: '#!/usr/bin/env node' },
+  },
 ];
 
 async function run() {

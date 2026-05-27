@@ -16,7 +16,9 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | `list_dir` | List a resource's files/folders; `recursive:true` returns the file tree (skips node_modules / dot-dirs) |
 | `find_files` | Glob a resource (`server/**/*.lua`, `**/*.vue`) matched against the path relative to its root |
 | `search_code` | Grep a resource for a substring or regex; returns file/line/text. Scope with `path`; skips binaries |
+| `get_resource_manifest` | Parse `fxmanifest.lua` into structured metadata (fx_version, game, version, script/files/dependency lists) |
 | `tail_console` | Recent lines from the in-memory ring buffer; filterable by `since_ts` or `channel` |
+| `scan_errors` | Scan the console for SCRIPT ERRORs / Lua tracebacks / JS exceptions → structured `{ message, frames: [{resource,file,line}] }`; filter by `resource` / `sinceTs` |
 | `list_plugins` | Loader snapshot — which plugins enabled, which tools each added |
 
 ## Core (write + lifecycle)
@@ -25,6 +27,8 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | --- | --- | --- |
 | `write_file` | Write inside a configured write root | `readonly` |
 | `edit_file` | Surgical str-replace in an existing file (unique-match guard, `replaceAll`) — cheaper/safer than a full rewrite | `readonly` + write root + extension |
+| `delete_file` | Delete one file (refuses directories and blocked segments) | `readonly` + write root |
+| `move_file` | Move/rename a file within a resource (`createDirs`, `overwrite`) | `readonly` + write root + extension |
 | `wait_for_console` | Block until a console line matches `pattern` (or `timeoutMs`); pair with `ensure`/`restart` to catch the banner or an error. `matched:false` on timeout is not an error | — |
 | `create_resource` | Scaffold `fxmanifest.lua` + `server.lua` + `README.md` | `readonly` |
 | `refresh_resources` | `ExecuteCommand("refresh")` + capture window | ACE `command.refresh` |
@@ -64,6 +68,17 @@ Run any FiveM native by name. Read-only verbs always pass; mutators need `readon
 | --- | --- |
 | `screenshot_nui` | Capture the FiveM CEF NUI via CDP at `http://localhost:13172`. `mode = isolate \| clip \| full`. With `resource` + default `isolate`, hides sibling iframes for a clean capture and restores them after |
 | `delete_screenshot` | Remove a screenshot under `dist/screenshots/` (sandboxed) |
+
+## NUI interaction
+
+Drive the live NUI over the same CDP connection (no Playwright). Pass `resource` to target that resource's iframe; the NUI must be open.
+
+| Tool | Purpose |
+| --- | --- |
+| `nui_eval` | Run a JS expression in the NUI and return its value (`returnByValue`) |
+| `nui_click` | Click a DOM element by CSS selector; returns `{ found }` |
+| `nui_fill` | Set an input/textarea value and dispatch `input`/`change` (Vue/React-safe) |
+| `nui_get` | Read an element's text / value / bounding rect / outerHTML |
 
 ## ESX plugin
 
@@ -106,6 +121,7 @@ Detects `oxmysql`. Uses `@overextended/oxmysql` for typed access. Defaults to `S
 | `oxmysql_query` | `oxmysql.query` returning a rows array (auto-trimmed to `rowLimit`, default 100) |
 | `oxmysql_scalar` | `oxmysql.scalar` returning the first column of the first row |
 | `oxmysql_execute` | `oxmysql.rawExecute` for INSERT/UPDATE/DELETE/DDL when allowed |
+| `oxmysql_schema` | Read-only `information_schema` introspection: tables → columns (name, type, key, nullable, default). Scope with `table` |
 
 ## Workflow / meta
 

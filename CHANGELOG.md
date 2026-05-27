@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — 2026-05-28
+
+### Added
+
+- **File management**: `delete_file` and `move_file` (move = rename within a
+  resource; `createDirs` / `overwrite`). Same readonly / write-root / extension
+  gates as `write_file`; `delete_file` refuses directories and blocked segments.
+- **`get_resource_manifest`** — parse a resource's `fxmanifest.lua` (or legacy
+  `__resource.lua`) into structured metadata: fx_version, game, name, author,
+  version, description, ui_page, lua54, and the script / files / dependency lists.
+- **`scan_errors`** — scan the console ring buffer for FiveM SCRIPT ERRORs, Lua
+  tracebacks, and JS exceptions, returning structured `{ ts, channel, message,
+  frames: [{ resource, file, line }] }`. Filter by `resource` / `sinceTs`.
+- **NUI interaction over CDP** — `nui_eval`, `nui_click`, `nui_fill`, `nui_get`
+  drive the live NUI over the same Chrome DevTools Protocol connection used for
+  screenshots (no Playwright). Pass `resource` to target that resource's iframe.
+  New `dist/nui-interact.js` bin.
+- **`oxmysql_schema`** — read-only `information_schema` introspection (tables →
+  columns: name, type, key, nullable, default) so the agent writes schema-aware
+  data code. Scope with `table`.
+- **MCP `resources/` capability** — `resources/list` + `resources/read` expose
+  read-only JSON snapshots: `agent://console`, `agent://resources`,
+  `agent://preferences`, `agent://skills`.
+
 ## [0.3.0] — 2026-05-28
 
 ### Added
