@@ -1,6 +1,6 @@
 {
   "name": "agent_api",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "FiveM resource exposing safe local MCP tools for agentic resource development.",
   "license": "SEE LICENSE IN ./LICENSE",

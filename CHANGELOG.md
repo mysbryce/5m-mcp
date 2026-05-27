@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] — 2026-05-27
+
+### Added
+
+- Dashboard permission labels, descriptions, and group names are now
+  translated. The text lives in the locale JSON keyed by convar
+  (`perm.<convar>.label` / `.desc`, `permGroup.<Group>`); the server still
+  owns the structural metadata. Missing keys fall back to the server's
+  English. Full Thai set for all 14 permissions + 4 groups.
+
 ## [0.1.2] — 2026-05-27
 
 ### Added
