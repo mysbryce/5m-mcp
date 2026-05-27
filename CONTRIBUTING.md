@@ -12,7 +12,7 @@ Repository: <https://github.com/mysbryce/5m-mcp>
 
 - Bug? → [open an issue](https://github.com/mysbryce/5m-mcp/issues) (use the "bug" label).
 - Idea? → [start a discussion](https://github.com/mysbryce/5m-mcp/discussions) before writing code.
-- **Security issue** → email **bubble.town2026@gmail.com** privately first. Do not open a public issue for sandbox bypasses, auth flaws, or anything that lets a caller escape the readonly/blocklist gates.
+- **Security issue** → email **fx.frame009@gmail.com** privately first. Do not open a public issue for sandbox bypasses, auth flaws, or anything that lets a caller escape the readonly/blocklist gates.
 
 ---
 
