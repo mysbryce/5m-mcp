@@ -1,13 +1,14 @@
 # 5m-mcp
 
-> 📖 **Docs:** <https://mysbryce.github.io/5m-mcp/> · **Source:** <https://github.com/mysbryce/5m-mcp>
+> **Docs:** <https://mysbryce.github.io/5m-mcp/> 
+> **Source:** <https://github.com/mysbryce/5m-mcp>
 > License: [PolyForm Noncommercial 1.0.0](./LICENSE) — non-commercial use, attribution required.
 
 A single FiveM resource that exposes a safe **MCP** (Model Context Protocol) surface, so any
 MCP-aware agent — Claude Code, Codex, Cursor — can **build, debug, and live-test FiveM resources
 against a running server**.
 
-> ℹ️ The project is **5m-mcp**; the resource you install is named `agent_api`.
+> The project is **5m-mcp**; the resource you install is named `agent_api`.
 
 ---
 
