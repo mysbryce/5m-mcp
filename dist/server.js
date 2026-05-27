@@ -4727,6 +4727,13 @@ var EXPECTED_STATE = {
   restart: "started"
 };
 async function runLifecycle(verb, resource, ctx) {
+  if (resource === GetCurrentResourceName()) {
+    return err(
+      "COMMAND_NOT_ALLOWED",
+      "Refusing to run lifecycle command against the agent_api resource itself. Self-restart while serving an HTTP request can crash the FiveM Mono runtime. Use the FiveM server console (`restart agent_api`) instead.",
+      { resource, verb }
+    );
+  }
   const info = getResourceInfo(resource);
   if (!info) {
     return err("RESOURCE_NOT_FOUND", `Resource not found: ${resource}`);

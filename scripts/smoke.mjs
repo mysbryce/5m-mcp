@@ -85,7 +85,7 @@ async function main() {
   summarize('reject unknown verb', await post('run_command', { command: 'rm -rf /' }), {
     expectFail: true,
   });
-  summarize('ensure_resource (self)', await post('ensure_resource', { name: 'agent_api' }));
+  summarize('refresh_resources', await post('refresh_resources', { waitMs: 300 }));
   const badAuth = await fetch(`${URL}/tools/health`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-agent-token': 'wrong' },
