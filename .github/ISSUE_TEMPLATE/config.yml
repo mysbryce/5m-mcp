@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report (private)
+    url: mailto:fx.frame009@gmail.com
+    about: Sandbox bypasses, auth flaws, or anything that lets a caller escape the readonly/blocklist gates. Do NOT file a public issue.
+  - name: Discussion
+    url: https://github.com/mysbryce/5m-mcp/discussions
+    about: Design proposals, framework support requests, general questions.
