@@ -69,8 +69,12 @@ function summarizeRpc(label, result, opts = {}) {
       : '';
   const suffix = expectFail ? ' (expected reject)' : '';
   console.log(`[${tag}] ${pad(label)} (${result.status})${detail}${suffix}`);
-  if (passed) tally.pass++;
-  else (tally.fail++, tally.failures.push(label));
+  if (passed) {
+    tally.pass++;
+  } else {
+    tally.fail++;
+    tally.failures.push(label);
+  }
   if (process.env.VERBOSE) {
     console.log(fmt(body));
     console.log('');
@@ -87,8 +91,12 @@ function summarize(label, result, opts = {}) {
   const detail = ok ? '' : ` ${result.body?.error?.code ?? '?'}`;
   const suffix = expectFail ? ' (expected reject)' : '';
   console.log(`[${tag}] ${pad(label)} (${result.status})${detail}${suffix}`);
-  if (passed) tally.pass++;
-  else (tally.fail++, tally.failures.push(label));
+  if (passed) {
+    tally.pass++;
+  } else {
+    tally.fail++;
+    tally.failures.push(label);
+  }
   if (process.env.VERBOSE) {
     console.log(fmt(result.body));
     console.log('');

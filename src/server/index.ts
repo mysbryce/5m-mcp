@@ -24,6 +24,7 @@ import {
   registerWaitForClientEvent,
 } from './tools/players';
 import { registerClientCallNative, registerClientListNatives } from './tools/clientNative';
+import { registerServerCallNative, registerServerListNatives } from './tools/serverNative';
 import { registerRunCommand } from './tools/runCommand';
 import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
@@ -66,6 +67,8 @@ function main(): void {
   registerWaitForClientEvent();
   registerClientCallNative();
   registerClientListNatives();
+  registerServerCallNative();
+  registerServerListNatives();
 
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();

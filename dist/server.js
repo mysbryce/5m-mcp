@@ -7294,6 +7294,74 @@ function registerClientListNatives() {
   });
 }
 
+// src/server/tools/serverNative.ts
+var READ_PREFIXES2 = ["Get", "Has", "Is", "Does", "Can", "Will", "Network"];
+function isReadOnlyNative2(name) {
+  return READ_PREFIXES2.some((p) => name.startsWith(p));
+}
+var NativeInput2 = external_exports.object({
+  native: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+  args: external_exports.array(external_exports.unknown()).max(32).optional()
+}).strict();
+var ListInput2 = external_exports.object({
+  prefix: external_exports.string().optional(),
+  limit: external_exports.number().int().min(1).max(2e3).optional()
+}).strict();
+function callOnServer(native, args, ctx) {
+  if (ctx.blocklist.has(native)) {
+    return err("COMMAND_NOT_ALLOWED", `server native ${native} is in the blocklist.`);
+  }
+  if (ctx.readonly && !isReadOnlyNative2(native)) {
+    return err(
+      "COMMAND_NOT_ALLOWED",
+      `readonly mode: ${native} does not start with Get/Has/Is/Does/Can/Will/Network.`
+    );
+  }
+  const fn = globalThis[native];
+  if (typeof fn !== "function") {
+    return err("INVALID_INPUT", `server native ${native} not found in global scope.`);
+  }
+  try {
+    const raw = fn(...args);
+    return ok({ native, args, result: safeSerialize(raw) });
+  } catch (e) {
+    return err("INTERNAL", e instanceof Error ? e.message : String(e));
+  }
+}
+function registerServerCallNative() {
+  register({
+    name: "server_call_native",
+    description: "Invoke ANY FiveM server-side native directly in the agent_api script context. No client round-trip; runs synchronously on the server. Read-only natives (prefix Get/Has/Is/Does/Can/Will/Network) always allowed. Mutating natives require agent_api_readonly=false. Block specific natives via agent_api_server_blocked_natives (csv).",
+    input: NativeInput2,
+    handler: async (input, ctx) => {
+      const blocklist = csvSet("agent_api_server_blocked_natives");
+      return callOnServer(input.native, input.args ?? [], {
+        readonly: ctx.convars.readonly,
+        blocklist
+      });
+    }
+  });
+}
+function registerServerListNatives() {
+  register({
+    name: "server_list_natives",
+    description: "Enumerate function names available in the server-side global scope. Filter by case-insensitive substring. Use before server_call_native to discover.",
+    input: ListInput2,
+    handler: async (input) => {
+      const wanted = (input.prefix ?? "").toLowerCase();
+      const max = Math.max(1, Math.min(2e3, input.limit ?? 500));
+      const names = [];
+      for (const k of Object.keys(globalThis)) {
+        if (typeof globalThis[k] !== "function") continue;
+        if (wanted && !k.toLowerCase().includes(wanted)) continue;
+        names.push(k);
+        if (names.length >= max) break;
+      }
+      return ok({ count: names.length, names: names.sort() });
+    }
+  });
+}
+
 // src/server/tools/runCommand.ts
 var Input3 = external_exports.object({
   command: external_exports.string().min(1),
@@ -9841,6 +9909,8 @@ function main() {
   registerWaitForClientEvent();
   registerClientCallNative();
   registerClientListNatives();
+  registerServerCallNative();
+  registerServerListNatives();
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
   registerListPlugins();
