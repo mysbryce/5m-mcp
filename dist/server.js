@@ -1,9 +1,168 @@
 "use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// node_modules/@overextended/ox_lib/dist/common/cache/index.js
+var cacheEvents, cache;
+var init_cache = __esm({
+  "node_modules/@overextended/ox_lib/dist/common/cache/index.js"() {
+    cacheEvents = {};
+    cache = new Proxy({
+      resource: GetCurrentResourceName(),
+      game: GetGameName()
+    }, { get(target, key) {
+      const result = key ? target[key] : target;
+      if (result !== void 0) return result;
+      cacheEvents[key] = [];
+      AddEventHandler(`ox_lib:cache:${key}`, (value) => {
+        const oldValue = target[key];
+        cacheEvents[key].forEach((cb) => cb(value, oldValue));
+        target[key] = value;
+      });
+      target[key] = exports.ox_lib.cache(key) || false;
+      return target[key];
+    } });
+  }
+});
+
+// node_modules/@overextended/oxmysql/MySQL.js
+var require_MySQL = __commonJS({
+  "node_modules/@overextended/oxmysql/MySQL.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.oxmysql = void 0;
+    var QueryStore = [];
+    function assert(condition, message) {
+      if (!condition)
+        throw new TypeError(message);
+    }
+    var safeArgs = (query, params, cb, transaction) => {
+      if (typeof query === "number") {
+        query = QueryStore[query];
+        assert(typeof query === "string", "First argument received invalid query store reference");
+      }
+      if (transaction) {
+        assert(typeof query === "object", `First argument expected object, recieved ${typeof query}`);
+      } else {
+        assert(typeof query === "string", `First argument expected string, received ${typeof query}`);
+      }
+      if (params) {
+        const paramType = typeof params;
+        assert(paramType === "object" || paramType === "function", `Second argument expected object or function, received ${paramType}`);
+        if (!cb && paramType === "function") {
+          cb = params;
+          params = void 0;
+        }
+      }
+      if (cb !== void 0)
+        assert(typeof cb === "function", `Third argument expected function, received ${typeof cb}`);
+      return [query, params, cb];
+    };
+    var exp = global.exports.oxmysql;
+    var currentResourceName = GetCurrentResourceName();
+    function execute(method, query, params) {
+      return new Promise((resolve2, reject) => {
+        exp[method](query, params, (result, error) => {
+          if (error)
+            return reject(error);
+          resolve2(result);
+        }, currentResourceName, true);
+      });
+    }
+    exports2.oxmysql = {
+      store(query) {
+        assert(typeof query !== "string", `Query expects a string, received ${typeof query}`);
+        return QueryStore.push(query);
+      },
+      ready(callback) {
+        setImmediate(async () => {
+          while (GetResourceState("oxmysql") !== "started")
+            await new Promise((resolve2) => setTimeout(resolve2, 50, null));
+          callback();
+        });
+      },
+      async query(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("query", query, params);
+        return cb ? cb(result) : result;
+      },
+      async single(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("single", query, params);
+        return cb ? cb(result) : result;
+      },
+      async scalar(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("scalar", query, params);
+        return cb ? cb(result) : result;
+      },
+      async update(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("update", query, params);
+        return cb ? cb(result) : result;
+      },
+      async insert(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("insert", query, params);
+        return cb ? cb(result) : result;
+      },
+      async prepare(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("prepare", query, params);
+        return cb ? cb(result) : result;
+      },
+      async rawExecute(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb);
+        const result = await execute("rawExecute", query, params);
+        return cb ? cb(result) : result;
+      },
+      async transaction(query, params, cb) {
+        [query, params, cb] = safeArgs(query, params, cb, true);
+        const result = await execute("transaction", query, params);
+        return cb ? cb(result) : result;
+      },
+      isReady() {
+        return exp.isReady();
+      },
+      async awaitConnection() {
+        return await exp.awaitConnection();
+      },
+      async startTransaction(cb) {
+        return exp.startTransaction(cb, currentResourceName);
+      }
+    };
+  }
+});
 
 // src/server/config/convars.ts
 function readString(name, fallback) {
@@ -4713,13 +4872,13 @@ function escapeLiteralCheckValue(literal, refs) {
   return refs.patternStrategy === "escape" ? escapeNonAlphaNumeric(literal) : literal;
 }
 var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0123456789");
-function escapeNonAlphaNumeric(source) {
+function escapeNonAlphaNumeric(source2) {
   let result = "";
-  for (let i = 0; i < source.length; i++) {
-    if (!ALPHA_NUMERIC.has(source[i])) {
+  for (let i = 0; i < source2.length; i++) {
+    if (!ALPHA_NUMERIC.has(source2[i])) {
       result += "\\";
     }
-    result += source[i];
+    result += source2[i];
   }
   return result;
 }
@@ -4792,60 +4951,60 @@ function stringifyRegExpWithFlags(regex, refs) {
     s: regex.flags.includes("s")
     // `.` matches newlines
   };
-  const source = flags.i ? regex.source.toLowerCase() : regex.source;
+  const source2 = flags.i ? regex.source.toLowerCase() : regex.source;
   let pattern = "";
   let isEscaped = false;
   let inCharGroup = false;
   let inCharRange = false;
-  for (let i = 0; i < source.length; i++) {
+  for (let i = 0; i < source2.length; i++) {
     if (isEscaped) {
-      pattern += source[i];
+      pattern += source2[i];
       isEscaped = false;
       continue;
     }
     if (flags.i) {
       if (inCharGroup) {
-        if (source[i].match(/[a-z]/)) {
+        if (source2[i].match(/[a-z]/)) {
           if (inCharRange) {
-            pattern += source[i];
-            pattern += `${source[i - 2]}-${source[i]}`.toUpperCase();
+            pattern += source2[i];
+            pattern += `${source2[i - 2]}-${source2[i]}`.toUpperCase();
             inCharRange = false;
-          } else if (source[i + 1] === "-" && ((_a = source[i + 2]) == null ? void 0 : _a.match(/[a-z]/))) {
-            pattern += source[i];
+          } else if (source2[i + 1] === "-" && ((_a = source2[i + 2]) == null ? void 0 : _a.match(/[a-z]/))) {
+            pattern += source2[i];
             inCharRange = true;
           } else {
-            pattern += `${source[i]}${source[i].toUpperCase()}`;
+            pattern += `${source2[i]}${source2[i].toUpperCase()}`;
           }
           continue;
         }
-      } else if (source[i].match(/[a-z]/)) {
-        pattern += `[${source[i]}${source[i].toUpperCase()}]`;
+      } else if (source2[i].match(/[a-z]/)) {
+        pattern += `[${source2[i]}${source2[i].toUpperCase()}]`;
         continue;
       }
     }
     if (flags.m) {
-      if (source[i] === "^") {
+      if (source2[i] === "^") {
         pattern += `(^|(?<=[\r
 ]))`;
         continue;
-      } else if (source[i] === "$") {
+      } else if (source2[i] === "$") {
         pattern += `($|(?=[\r
 ]))`;
         continue;
       }
     }
-    if (flags.s && source[i] === ".") {
-      pattern += inCharGroup ? `${source[i]}\r
-` : `[${source[i]}\r
+    if (flags.s && source2[i] === ".") {
+      pattern += inCharGroup ? `${source2[i]}\r
+` : `[${source2[i]}\r
 ]`;
       continue;
     }
-    pattern += source[i];
-    if (source[i] === "\\") {
+    pattern += source2[i];
+    if (source2[i] === "\\") {
       isEscaped = true;
-    } else if (inCharGroup && source[i] === "]") {
+    } else if (inCharGroup && source2[i] === "]") {
       inCharGroup = false;
-    } else if (!inCharGroup && source[i] === "[") {
+    } else if (!inCharGroup && source2[i] === "[") {
       inCharGroup = true;
     }
   }
@@ -6507,17 +6666,17 @@ function ensureNetHandler(event) {
   if (registeredEvents.has(event)) return;
   registeredEvents.add(event);
   onNet(event, (...args) => {
-    const source = globalThis.source ?? 0;
+    const source2 = globalThis.source ?? 0;
     const matched = [];
     for (const l of listeners) {
       if (l.event !== event) continue;
-      if (l.fromSubject !== void 0 && l.fromSubject !== source) continue;
+      if (l.fromSubject !== void 0 && l.fromSubject !== source2) continue;
       matched.push(l);
     }
     for (const l of matched) {
       clearTimeout(l.timer);
       listeners.delete(l);
-      l.resolve({ from: source, args });
+      l.resolve({ from: source2, args });
     }
   });
 }
@@ -6816,56 +6975,56 @@ function chat(serverId, color, text) {
 function installOptInCommands(ttlSeconds) {
   RegisterCommand(
     "agent_test_optin",
-    (source) => {
-      if (source === 0) {
+    (source2) => {
+      if (source2 === 0) {
         console.log("[agent_api] /agent_test_optin must be run by a player, not the console.");
         return;
       }
-      const session = addOptIn(source, ttlSeconds);
+      const session = addOptIn(source2, ttlSeconds);
       const minutes = Math.round(ttlSeconds / 60);
       chat(
-        source,
+        source2,
         [120, 200, 120],
         `You are now a test subject for ${minutes} minutes. Type /agent_test_optout to revoke.`
       );
       console.log(
-        `[agent_api] opt-in: serverId=${source} name=${session.name} expires=${new Date(session.expiresAt).toISOString()}`
+        `[agent_api] opt-in: serverId=${source2} name=${session.name} expires=${new Date(session.expiresAt).toISOString()}`
       );
     },
     false
   );
   RegisterCommand(
     "agent_test_optout",
-    (source) => {
-      if (source === 0) return;
-      const had = removeOptIn(source);
-      dropPlayer2(source);
+    (source2) => {
+      if (source2 === 0) return;
+      const had = removeOptIn(source2);
+      dropPlayer2(source2);
       if (had) {
-        chat(source, [200, 120, 120], "Test subject opt-out confirmed.");
-        console.log(`[agent_api] opt-out: serverId=${source}`);
+        chat(source2, [200, 120, 120], "Test subject opt-out confirmed.");
+        console.log(`[agent_api] opt-out: serverId=${source2}`);
       }
     },
     false
   );
   RegisterCommand(
     "agent_test_status",
-    (source) => {
-      if (source === 0) return;
-      const s = getOptIn(source);
+    (source2) => {
+      if (source2 === 0) return;
+      const s = getOptIn(source2);
       if (!s) {
-        chat(source, [200, 200, 120], "You are NOT a test subject.");
+        chat(source2, [200, 200, 120], "You are NOT a test subject.");
       } else {
         const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1e3));
-        chat(source, [120, 200, 200], `Opted in. ${left}s remaining.`);
+        chat(source2, [120, 200, 200], `Opted in. ${left}s remaining.`);
       }
     },
     false
   );
   on("playerDropped", () => {
-    const source = globalThis.source;
-    if (typeof source === "number") {
-      dropPlayer(source);
-      dropPlayer2(source);
+    const source2 = globalThis.source;
+    if (typeof source2 === "number") {
+      dropPlayer(source2);
+      dropPlayer2(source2);
     }
   });
 }
@@ -6999,6 +7158,35 @@ var esxPlugin = {
   }
 };
 
+// node_modules/@overextended/ox_lib/dist/server/callback/index.js
+init_cache();
+var pendingCallbacks = {};
+var callbackTimeout = GetConvarInt("ox:callbackTimeout", 3e5);
+onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
+  const resolve2 = pendingCallbacks[key];
+  if (!resolve2) return;
+  delete pendingCallbacks[key];
+  resolve2(...args);
+});
+function triggerClientCallback(eventName, playerId, ...args) {
+  let key;
+  do
+    key = `${eventName}:${Math.floor(Math.random() * 100001)}:${playerId}`;
+  while (pendingCallbacks[key]);
+  emitNet(`ox_lib:validateCallback`, playerId, eventName, cache.resource, key);
+  emitNet(`__ox_cb_${eventName}`, playerId, cache.resource, key, ...args);
+  return new Promise((resolve2, reject) => {
+    pendingCallbacks[key] = (args2) => {
+      if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
+      resolve2(args2);
+    };
+    setTimeout(reject, callbackTimeout, `callback event '${key}' timed out`);
+  });
+}
+
+// node_modules/@overextended/ox_lib/dist/server/version/index.js
+var versionCheck = (repository) => exports.ox_lib.versionCheck(repository);
+
 // src/server/plugins/oxlib/index.ts
 var RESOURCE2 = "ox_lib";
 var NotifyInput = external_exports.object({
@@ -7018,9 +7206,15 @@ var NotifyInput = external_exports.object({
     "center-left"
   ]).optional()
 }).strict();
+var CallbackInput = external_exports.object({
+  serverId: external_exports.number().int().min(1),
+  event: external_exports.string().min(1),
+  args: external_exports.array(external_exports.unknown()).optional(),
+  timeoutMs: external_exports.number().int().min(100).max(3e4).optional()
+}).strict();
 var oxLibPlugin = {
   name: "oxlib",
-  description: "ox_lib bridge \u2014 UI notifications and server callbacks.",
+  description: "ox_lib bridge \u2014 notifications, client callbacks, version check.",
   detect: () => isResourceStarted(RESOURCE2),
   install: ({ register: register2 }) => {
     register2({
@@ -7039,38 +7233,52 @@ var oxLibPlugin = {
       }
     });
     register2({
-      name: "oxlib_resource_versions",
-      description: "List ox_lib detection info \u2014 useful as a connectivity probe.",
-      input: external_exports.object({}).strict(),
-      handler: async () => {
-        const state = GetResourceState(RESOURCE2);
-        if (state !== "started") return err("INTERNAL", `ox_lib state: ${state}`);
-        return ok({ resource: RESOURCE2, state });
+      name: "oxlib_trigger_client_callback",
+      description: "Round-trip call: trigger an ox_lib client callback on one player and return their reply.",
+      input: CallbackInput,
+      handler: async (input) => {
+        try {
+          const timer = new Promise(
+            (res) => setTimeout(() => res(TIMEOUT_SYMBOL), input.timeoutMs ?? 5e3)
+          );
+          const call = triggerClientCallback(
+            input.event,
+            input.serverId,
+            ...input.args ?? []
+          );
+          const result = await Promise.race([call, timer]);
+          if (result === TIMEOUT_SYMBOL) {
+            return err("TIMEOUT", `ox_lib callback ${input.event} timed out.`);
+          }
+          return ok({ result });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+    register2({
+      name: "oxlib_check_dependency",
+      description: "Use ox_lib versionCheck to confirm a resource meets a minimum semver version.",
+      input: external_exports.object({
+        resource: external_exports.string().min(1),
+        minVersion: external_exports.string().min(1)
+      }).strict(),
+      handler: async (input) => {
+        try {
+          versionCheck(`${input.resource}@${input.minVersion}`);
+          return ok({ checked: true });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
       }
     });
   }
 };
+var TIMEOUT_SYMBOL = Symbol("oxlib-callback-timeout");
 
 // src/server/plugins/oxmysql/index.ts
+var import_oxmysql = __toESM(require_MySQL());
 var RESOURCE3 = "oxmysql";
-function callAsync(method, query, params) {
-  return new Promise((resolve2, reject) => {
-    const fn = safeExport(RESOURCE3, method);
-    if (!fn) {
-      reject(new Error(`oxmysql.${method} export missing`));
-      return;
-    }
-    try {
-      fn(
-        query,
-        params,
-        (val) => resolve2(val)
-      );
-    } catch (e) {
-      reject(e instanceof Error ? e : new Error(String(e)));
-    }
-  });
-}
 function firstWord(q) {
   var _a;
   return ((_a = q.trim().split(/\s+/)[0]) == null ? void 0 : _a.toUpperCase()) ?? "";
@@ -7105,15 +7313,8 @@ var QueryInput = external_exports.object({
 }).strict();
 var oxMysqlPlugin = {
   name: "oxmysql",
-  description: "oxmysql bridge \u2014 gated SQL. Defaults to SELECT-only via convars; off by default.",
-  detect: () => {
-    const started = isResourceStarted(RESOURCE3);
-    if (!started.ok) return started;
-    if (!safeExport(RESOURCE3, "query_async")) {
-      return { ok: false, reason: `${RESOURCE3} export query_async missing` };
-    }
-    return { ok: true };
-  },
+  description: "oxmysql bridge \u2014 gated SQL via @overextended/oxmysql. SELECT-only by default.",
+  detect: () => isResourceStarted(RESOURCE3),
   install: ({ register: register2 }) => {
     register2({
       name: "oxmysql_query",
@@ -7123,12 +7324,13 @@ var oxMysqlPlugin = {
         const guard = guardQuery(input.query);
         if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
         try {
-          const rows = await callAsync("query_async", input.query, input.params ?? []);
+          const rows = await import_oxmysql.oxmysql.query(input.query, input.params ?? []);
           const limit = input.rowLimit ?? 100;
-          const trimmed = Array.isArray(rows) ? rows.slice(0, limit) : rows;
+          const arr = Array.isArray(rows) ? rows : rows == null ? [] : [rows];
+          const trimmed = arr.slice(0, limit);
           return ok({
-            rowCount: Array.isArray(rows) ? rows.length : null,
-            truncated: Array.isArray(rows) && rows.length > limit,
+            rowCount: arr.length,
+            truncated: arr.length > limit,
             rows: trimmed
           });
         } catch (e) {
@@ -7144,7 +7346,7 @@ var oxMysqlPlugin = {
         const guard = guardQuery(input.query);
         if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
         try {
-          const value = await callAsync("scalar_async", input.query, input.params ?? []);
+          const value = await import_oxmysql.oxmysql.scalar(input.query, input.params ?? []);
           return ok({ value });
         } catch (e) {
           return err("INTERNAL", e instanceof Error ? e.message : String(e));
@@ -7159,7 +7361,7 @@ var oxMysqlPlugin = {
         const guard = guardQuery(input.query);
         if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
         try {
-          const result = await callAsync("execute_async", input.query, input.params ?? []);
+          const result = await import_oxmysql.oxmysql.rawExecute(input.query, input.params ?? []);
           return ok({ result });
         } catch (e) {
           return err("INTERNAL", e instanceof Error ? e.message : String(e));

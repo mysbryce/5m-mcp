@@ -25,6 +25,8 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@overextended/ox_lib": "^3.35.0",
+    "@overextended/oxmysql": "^2.14.1",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.0"
   }

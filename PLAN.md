@@ -590,13 +590,54 @@ Each milestone is independently shippable.
 - probes: `entity_basic`, `ped_status`, `player_meta`
 - tools: `list_players`, `register_test_subject`, `unregister_test_subject`, `get_player_state`, `trigger_client_event`, `send_chat`, `wait_for_client_event`
 
-### M6 — Hardening
+### M6 — Hardening + Plugin framework
 
 - rate limit (token bucket, 120 req/min default)
 - request timeouts wired through every tool (default 30 s, `wait_for_client_event` 60 s, optional `timeout_ms` input)
 - file size enforcement everywhere (read window params, write reject)
 - optional probe: `inventory_snap` bridging target resource exports
+- **plugin framework** (`src/server/plugins/`): each external library = one folder + entry in `plugins/index.ts`
+  - bundled: `esx` (es_extended), `oxlib` (@overextended/ox_lib), `oxmysql` (@overextended/oxmysql)
+  - auto-detect via `GetResourceState`; opt-out via `agent_api_plugin_<name>_enabled false`
+  - `list_plugins` MCP tool exposes status snapshot
 - integration tests against a throwaway scratch resource
 - `README.md` install guide + Claude Code config snippet
+
+## Plugin Framework
+
+Every external FiveM library that exposes an MCP tool surface lives under `src/server/plugins/<name>/index.ts` and implements:
+
+```ts
+export type Plugin = {
+  name: string;              // also drives convar prefix
+  description: string;
+  detect: () => { ok: true } | { ok: false; reason: string };
+  install: (ctx: PluginContext) => void;   // call ctx.register(...) per tool
+};
+```
+
+To add a plugin (e.g. `qbx_core`):
+
+1. Create `src/server/plugins/qbx/index.ts` exporting a `Plugin`.
+2. Push it into `ALL_PLUGINS` in `src/server/plugins/index.ts`.
+3. Done — loader handles detection, opt-out convar, and status logging.
+
+Bundled plugins:
+
+| Plugin    | Detects        | Source typings                            | Tools                                                                                        |
+| --------- | -------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `esx`     | `es_extended`  | hand-rolled (ESX has no first-party npm)  | `esx_list_players`, `esx_get_player` + (rw) `esx_add_money`, `esx_set_job`                   |
+| `oxlib`   | `ox_lib`       | `@overextended/ox_lib`                    | `oxlib_notify`, `oxlib_trigger_client_callback`, `oxlib_check_dependency`                    |
+| `oxmysql` | `oxmysql`      | `@overextended/oxmysql`                   | `oxmysql_query`, `oxmysql_scalar`, `oxmysql_execute` (gated by readonly + statement allowlist) |
+
+Convars per plugin:
+
+```cfg
+set agent_api_plugin_esx_enabled         auto    # auto | true | false
+set agent_api_plugin_oxlib_enabled       auto
+set agent_api_plugin_oxmysql_enabled     auto
+set agent_api_plugin_oxmysql_readonly    true    # SELECT-only when true
+set agent_api_plugin_oxmysql_allow_statements "SELECT"   # csv, uppercase
+```
 
 Rough sizing: each milestone ≈ 1–3 days of focused work; full plan ≈ ~2 weeks end-to-end.

@@ -1,32 +1,10 @@
 import { z } from 'zod';
+import { oxmysql } from '@overextended/oxmysql';
 import { err, ok } from '../../util/envelope';
 import { Plugin } from '../types';
-import { isResourceStarted, safeExport } from '../helpers';
+import { isResourceStarted } from '../helpers';
 
 const RESOURCE = 'oxmysql';
-
-type OxMysqlExports = {
-  query_async?: (query: string, params: unknown[], cb: (rows: unknown) => void) => void;
-  execute_async?: (query: string, params: unknown[], cb: (affected: unknown) => void) => void;
-  scalar_async?: (query: string, params: unknown[], cb: (value: unknown) => void) => void;
-};
-
-function callAsync<T>(method: keyof OxMysqlExports, query: string, params: unknown[]): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const fn = safeExport<OxMysqlExports[typeof method]>(RESOURCE, method);
-    if (!fn) {
-      reject(new Error(`oxmysql.${method} export missing`));
-      return;
-    }
-    try {
-      (fn as (q: string, p: unknown[], cb: (v: unknown) => void) => void)(query, params, (val) =>
-        resolve(val as T),
-      );
-    } catch (e) {
-      reject(e instanceof Error ? e : new Error(String(e)));
-    }
-  });
-}
 
 function firstWord(q: string): string {
   return q.trim().split(/\s+/)[0]?.toUpperCase() ?? '';
@@ -72,15 +50,8 @@ type QueryInput = z.infer<typeof QueryInput>;
 
 export const oxMysqlPlugin: Plugin = {
   name: 'oxmysql',
-  description: 'oxmysql bridge — gated SQL. Defaults to SELECT-only via convars; off by default.',
-  detect: () => {
-    const started = isResourceStarted(RESOURCE);
-    if (!started.ok) return started;
-    if (!safeExport(RESOURCE, 'query_async')) {
-      return { ok: false, reason: `${RESOURCE} export query_async missing` };
-    }
-    return { ok: true };
-  },
+  description: 'oxmysql bridge — gated SQL via @overextended/oxmysql. SELECT-only by default.',
+  detect: () => isResourceStarted(RESOURCE),
   install: ({ register }) => {
     register({
       name: 'oxmysql_query',
@@ -93,12 +64,13 @@ export const oxMysqlPlugin: Plugin = {
         const guard = guardQuery(input.query);
         if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
         try {
-          const rows = await callAsync<unknown[]>('query_async', input.query, input.params ?? []);
+          const rows = await oxmysql.query(input.query, input.params ?? []);
           const limit = input.rowLimit ?? 100;
-          const trimmed = Array.isArray(rows) ? rows.slice(0, limit) : rows;
+          const arr = Array.isArray(rows) ? rows : rows == null ? [] : [rows];
+          const trimmed = arr.slice(0, limit);
           return ok({
-            rowCount: Array.isArray(rows) ? rows.length : null,
-            truncated: Array.isArray(rows) && rows.length > limit,
+            rowCount: arr.length,
+            truncated: arr.length > limit,
             rows: trimmed,
           });
         } catch (e) {
@@ -115,7 +87,7 @@ export const oxMysqlPlugin: Plugin = {
         const guard = guardQuery(input.query);
         if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
         try {
-          const value = await callAsync<unknown>('scalar_async', input.query, input.params ?? []);
+          const value = await oxmysql.scalar(input.query, input.params ?? []);
           return ok({ value });
         } catch (e) {
           return err('INTERNAL', e instanceof Error ? e.message : String(e));
@@ -134,7 +106,7 @@ export const oxMysqlPlugin: Plugin = {
         const guard = guardQuery(input.query);
         if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
         try {
-          const result = await callAsync<unknown>('execute_async', input.query, input.params ?? []);
+          const result = await oxmysql.rawExecute(input.query, input.params ?? []);
           return ok({ result });
         } catch (e) {
           return err('INTERNAL', e instanceof Error ? e.message : String(e));
