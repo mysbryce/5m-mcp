@@ -4,8 +4,10 @@ import UiButton from '../../shared/ui/UiButton.vue';
 import StatusMessage from '../../shared/ui/StatusMessage.vue';
 import PermissionRow from './PermissionRow.vue';
 import { usePermissions } from './usePermissions';
+import { useI18n } from '../../i18n/useI18n';
 
 const { groups, dirty, loading, current, stage, load, save } = usePermissions();
+const { t } = useI18n();
 
 const status = ref<{ text: string; tone: 'neutral' | 'error' | 'ok' } | null>(null);
 
@@ -13,25 +15,23 @@ onMounted(load);
 
 async function onSave() {
   if (!dirty.value) {
-    status.value = { text: 'Nothing changed.', tone: 'neutral' };
+    status.value = { text: t('perm.nothingChanged'), tone: 'neutral' };
     return;
   }
-  status.value = { text: 'Saving…', tone: 'neutral' };
+  status.value = { text: t('perm.saving'), tone: 'neutral' };
   const result = await save();
   status.value = result.ok
-    ? { text: 'Saved & applied live.', tone: 'ok' }
-    : { text: result.error ?? 'Failed.', tone: 'error' };
+    ? { text: t('perm.saved'), tone: 'ok' }
+    : { text: result.error ?? t('perm.failed'), tone: 'error' };
 }
 </script>
 
 <template>
   <section>
-    <div class="section-title">Sandbox permissions</div>
-    <div class="section-sub">
-      These map directly to agent_api convars. Changes apply live and persist across restarts.
-    </div>
+    <div class="section-title">{{ t('perm.title') }}</div>
+    <div class="section-sub">{{ t('perm.sub') }}</div>
 
-    <p v-if="loading" class="loading">Loading…</p>
+    <p v-if="loading" class="loading">{{ t('common.loading') }}</p>
 
     <template v-else>
       <div v-for="(items, group) in groups" :key="group" class="group">
@@ -49,7 +49,7 @@ async function onSave() {
 
       <div class="save-bar">
         <StatusMessage v-if="status" :text="status.text" :tone="status.tone" />
-        <UiButton :disabled="!dirty" @click="onSave">Save changes</UiButton>
+        <UiButton :disabled="!dirty" @click="onSave">{{ t('perm.save') }}</UiButton>
       </div>
     </template>
   </section>

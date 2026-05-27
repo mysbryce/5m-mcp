@@ -10,7 +10,8 @@
   --accent: oklch(0.832 0.1638 83.82);
   --danger: oklch(0.62 0.21 25);
   --radius: 10px;
-  --sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Inter renders Latin; Noto Sans Thai catches Thai glyphs Inter lacks. */
+  --sans: 'Inter', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 * {

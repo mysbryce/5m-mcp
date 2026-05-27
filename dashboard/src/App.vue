@@ -5,8 +5,10 @@ import AuthView from './features/auth/AuthView.vue';
 import PermissionsView from './features/permissions/PermissionsView.vue';
 import UsersView from './features/users/UsersView.vue';
 import { useAuth } from './features/auth/useAuth';
+import { useI18n } from './i18n/useI18n';
 
 const { me, ready, boot, logout } = useAuth();
+const { t } = useI18n();
 
 type Tab = 'permissions' | 'users';
 const tab = ref<Tab>('permissions');
@@ -17,7 +19,7 @@ onMounted(boot);
 <template>
   <TopBar :user="me" @logout="logout" />
 
-  <div v-if="!ready" class="placeholder">Loading…</div>
+  <div v-if="!ready" class="placeholder">{{ t('common.loading') }}</div>
 
   <AuthView v-else-if="!me" />
 
@@ -25,7 +27,7 @@ onMounted(boot);
     <div class="wrap">
       <nav class="tabs">
         <button class="tab" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">
-          Permissions
+          {{ t('tabs.permissions') }}
         </button>
         <button
           v-if="me.role === 'master'"
@@ -33,7 +35,7 @@ onMounted(boot);
           :class="{ active: tab === 'users' }"
           @click="tab = 'users'"
         >
-          Users
+          {{ t('tabs.users') }}
         </button>
       </nav>
 

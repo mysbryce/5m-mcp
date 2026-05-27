@@ -2,20 +2,35 @@
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import type { PublicUser } from '../shared/types';
+import { useI18n } from '../i18n/useI18n';
 
 defineProps<{ user: PublicUser | null }>();
 defineEmits<{ logout: [] }>();
+
+const { t, locale, setLocale, options } = useI18n();
 </script>
 
 <template>
   <header class="topbar">
-    <div class="brand"><span class="dot" /> agent_api <UiBadge>dashboard</UiBadge></div>
-    <div v-if="user" class="userbar">
-      <span class="who">
-        {{ user.username }}
-        <UiBadge v-if="user.role === 'master'" tone="primary">master</UiBadge>
-      </span>
-      <UiButton variant="ghost" @click="$emit('logout')">Sign out</UiButton>
+    <div class="brand">
+      <span class="dot" /> agent_api <UiBadge>{{ t('nav.dashboard') }}</UiBadge>
+    </div>
+    <div class="right">
+      <select
+        class="lang"
+        :value="locale"
+        aria-label="Language"
+        @change="setLocale(($event.target as HTMLSelectElement).value)"
+      >
+        <option v-for="o in options" :key="o.code" :value="o.code">{{ o.name }}</option>
+      </select>
+      <template v-if="user">
+        <span class="who">
+          {{ user.username }}
+          <UiBadge v-if="user.role === 'master'" tone="primary">{{ t('role.master') }}</UiBadge>
+        </span>
+        <UiButton variant="ghost" @click="$emit('logout')">{{ t('common.signOut') }}</UiButton>
+      </template>
     </div>
   </header>
 </template>
@@ -48,12 +63,17 @@ defineEmits<{ logout: [] }>();
   background: var(--primary);
   box-shadow: 0 0 12px oklch(0.6049 0.1419 276.7 / 0.8);
 }
-.userbar {
+.right {
   display: flex;
   align-items: center;
   gap: 12px;
   color: var(--muted);
   font-size: 13px;
+}
+.lang {
+  width: auto;
+  padding: 5px 8px;
+  font-size: 12px;
 }
 .who {
   display: inline-flex;

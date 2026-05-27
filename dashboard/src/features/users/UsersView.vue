@@ -5,8 +5,10 @@ import UiBadge from '../../shared/ui/UiBadge.vue';
 import StatusMessage from '../../shared/ui/StatusMessage.vue';
 import type { PublicUser, Role } from '../../shared/types';
 import { useUsers } from './useUsers';
+import { useI18n } from '../../i18n/useI18n';
 
 const { users, loading, load, create, remove } = useUsers();
+const { t } = useI18n();
 
 const username = ref('');
 const password = ref('');
@@ -23,12 +25,12 @@ async function onAdd() {
     password.value = '';
     role.value = 'member';
   } else {
-    error.value = result.error ?? 'Failed.';
+    error.value = result.error ?? t('users.failed');
   }
 }
 
 async function onRemove(user: PublicUser) {
-  if (!confirm(`Remove ${user.username}?`)) return;
+  if (!confirm(t('users.confirmRemove', { name: user.username }))) return;
   await remove(user.id);
 }
 
@@ -37,33 +39,32 @@ const fmtDate = (d: string) => new Date(d).toLocaleDateString();
 
 <template>
   <section>
-    <div class="section-title">Users</div>
-    <div class="section-sub">
-      Only the master can create or remove accounts. There is no public signup once the master
-      exists.
-    </div>
+    <div class="section-title">{{ t('users.title') }}</div>
+    <div class="section-sub">{{ t('users.sub') }}</div>
 
     <div class="card">
-      <p v-if="loading" class="row muted">Loading…</p>
+      <p v-if="loading" class="row muted">{{ t('common.loading') }}</p>
       <div v-for="u in users" :key="u.id" class="row">
         <div>
           <span class="u-name">{{ u.username }}</span>
           <UiBadge :tone="u.role === 'master' ? 'primary' : 'neutral'" style="margin-left: 8px">
-            {{ u.role }}
+            {{ u.role === 'master' ? t('role.master') : t('role.member') }}
           </UiBadge>
-          <div class="u-meta">since {{ fmtDate(u.createdAt) }}</div>
+          <div class="u-meta">{{ t('users.since') }} {{ fmtDate(u.createdAt) }}</div>
         </div>
-        <UiButton v-if="u.role !== 'master'" variant="danger" @click="onRemove(u)">Remove</UiButton>
+        <UiButton v-if="u.role !== 'master'" variant="danger" @click="onRemove(u)">
+          {{ t('users.remove') }}
+        </UiButton>
       </div>
 
       <div class="add">
-        <input v-model="username" placeholder="username" />
-        <input v-model="password" type="password" placeholder="password (min 8)" />
+        <input v-model="username" :placeholder="t('users.username')" />
+        <input v-model="password" type="password" :placeholder="t('users.password')" />
         <select v-model="role">
-          <option value="member">member</option>
-          <option value="master">master</option>
+          <option value="member">{{ t('role.member') }}</option>
+          <option value="master">{{ t('role.master') }}</option>
         </select>
-        <UiButton @click="onAdd">Add</UiButton>
+        <UiButton @click="onAdd">{{ t('users.add') }}</UiButton>
       </div>
     </div>
 

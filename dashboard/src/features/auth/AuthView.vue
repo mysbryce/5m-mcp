@@ -4,8 +4,10 @@ import UiButton from '../../shared/ui/UiButton.vue';
 import UiField from '../../shared/ui/UiField.vue';
 import StatusMessage from '../../shared/ui/StatusMessage.vue';
 import { useAuth } from './useAuth';
+import { useI18n } from '../../i18n/useI18n';
 
 const { signupOpen, authenticate } = useAuth();
+const { t } = useI18n();
 
 const mode = computed(() => (signupOpen.value ? 'signup' : 'login'));
 const username = ref('');
@@ -25,19 +27,13 @@ async function submit() {
 <template>
   <div class="center">
     <div class="card auth">
-      <h1>{{ mode === 'signup' ? 'Create master account' : 'Sign in' }}</h1>
-      <p class="sub">
-        {{
-          mode === 'signup'
-            ? 'No users yet. The first account becomes the master and controls everything.'
-            : 'Signup is closed. The master manages accounts from inside.'
-        }}
-      </p>
+      <h1>{{ mode === 'signup' ? t('auth.signupTitle') : t('auth.loginTitle') }}</h1>
+      <p class="sub">{{ mode === 'signup' ? t('auth.signupSub') : t('auth.loginSub') }}</p>
 
-      <UiField label="Username">
+      <UiField :label="t('auth.username')">
         <input v-model="username" autocomplete="username" @keydown.enter="submit" />
       </UiField>
-      <UiField label="Password">
+      <UiField :label="t('auth.password')">
         <input
           v-model="password"
           type="password"
@@ -47,7 +43,7 @@ async function submit() {
       </UiField>
 
       <UiButton block :disabled="busy" @click="submit">
-        {{ mode === 'signup' ? 'Create master' : 'Sign in' }}
+        {{ mode === 'signup' ? t('auth.createMaster') : t('auth.signIn') }}
       </UiButton>
       <StatusMessage v-if="error" :text="error" tone="error" style="margin-top: 10px" />
     </div>
