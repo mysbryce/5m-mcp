@@ -32,6 +32,7 @@
     "fmt:check": "oxfmt --check",
     "check": "npm run typecheck && npm run lint && npm run fmt:check",
     "smoke": "node scripts/smoke.mjs",
+    "smoke:stdio": "node scripts/smoke-stdio.mjs",
     "generate:resource": "node scripts/generate-resource.mjs"
   },
   "devDependencies": {
