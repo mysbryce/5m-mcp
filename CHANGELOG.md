@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2] — 2026-05-28
+
+### Changed
+
+- **Token-usage reductions** across the high-volume tools:
+  - `list_dir` / `find_files` / `search_code` now skip generated build output
+    (`dist`, `build`, `out`, `coverage`, `vendor`) by default — no more matches
+    from minified bundles. Pass `includeBuilt:true` to search them anyway.
+  - MCP `resources/read` now returns compact JSON (no pretty-print indentation).
+  - The preference auto-injection only fires on `create_resource` /
+    `scaffold_fivem_resource_workflow` (not every `write_file` / `edit_file`), and
+    its reminder text is much shorter.
+
 ## [0.4.1] — 2026-05-28
 
 ### Changed

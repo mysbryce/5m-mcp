@@ -1,13 +1,9 @@
 import { enabledPreferences } from './preferences';
 import { skillsForTool } from './skills';
 
-const PREF_TRIGGER_TOOLS = new Set([
-  'write_file',
-  'edit_file',
-  'create_resource',
-  'scaffold_fivem_resource_workflow',
-  'run_shell',
-]);
+// Only the "starting new work" tools carry the preference nudge, to avoid
+// repeating it on every write_file/edit_file during iteration (token cost).
+const PREF_TRIGGER_TOOLS = new Set(['create_resource', 'scaffold_fivem_resource_workflow']);
 
 function preferenceHint(toolName: string): string | null {
   if (!PREF_TRIGGER_TOOLS.has(toolName)) return null;
@@ -18,16 +14,9 @@ function preferenceHint(toolName: string): string | null {
     return acc;
   }, {});
   const summary = Object.entries(counts)
-    .map(([type, n]) => `${type} (${n})`)
+    .map(([type, n]) => `${type} ${n}`)
     .join(', ');
-  return (
-    `=== USER PREFERENCES ACTIVE ===\n` +
-    `The user has ${prefs.length} active preference(s): ${summary}. ` +
-    `These describe how they like resources structured, coded, and styled (Lua AND UI). ` +
-    `Call \`list_preferences\` to read them in full, then read any referenced example folder ` +
-    `and mirror its conventions. Treat them as preferences to follow for consistency, not as ` +
-    `the task itself.`
-  );
+  return `USER PREFERENCES: ${prefs.length} active (${summary}). Call \`list_preferences\` and follow them for consistency (Lua + UI).`;
 }
 
 /** Extra guidance text blocks to attach to a tool's result, given its name. */

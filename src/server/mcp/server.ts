@@ -6,7 +6,7 @@ import { listResources, readResource } from './resources';
 import { injectedTexts } from '../dashboard/inject';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.4.1' };
+const SERVER_INFO = { name: 'agent_api', version: '0.4.2' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 

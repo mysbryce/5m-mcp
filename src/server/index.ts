@@ -53,7 +53,7 @@ import { registerListPreferences } from './tools/preferences';
 import { registerListSkills } from './tools/skills';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.4.1';
+const VERSION = '0.4.2';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -114,28 +114,28 @@ function main(): void {
     name: 'Console (recent)',
     description: 'Last 200 lines from the server console ring buffer',
     mimeType: 'application/json',
-    read: () => JSON.stringify(consoleBuffer.tail({ lines: 200 }), null, 2),
+    read: () => JSON.stringify(consoleBuffer.tail({ lines: 200 })),
   });
   registerResource({
     uri: 'agent://resources',
     name: 'Resources',
     description: 'Every registered FiveM resource and its state',
     mimeType: 'application/json',
-    read: () => JSON.stringify(listResources(), null, 2),
+    read: () => JSON.stringify(listResources()),
   });
   registerResource({
     uri: 'agent://preferences',
     name: 'Preferences',
     description: 'Active development preferences (structure / coding / ui-design)',
     mimeType: 'application/json',
-    read: () => JSON.stringify(enabledPreferences(), null, 2),
+    read: () => JSON.stringify(enabledPreferences()),
   });
   registerResource({
     uri: 'agent://skills',
     name: 'Skills',
     description: 'User-uploaded custom skills with triggers and bodies',
     mimeType: 'application/json',
-    read: () => JSON.stringify(listSkills(), null, 2),
+    read: () => JSON.stringify(listSkills()),
   });
 
   registerListPlugins();

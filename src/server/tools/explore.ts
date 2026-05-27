@@ -7,6 +7,10 @@ import { checkReadExtension, resolveResourcePath } from '../fs/sandbox';
 import { register } from './registry';
 
 const SKIP_DIRS = new Set(['node_modules', 'txdata', 'database', 'cache']);
+// Generated build output — skipped by default (set includeBuilt:true to include).
+// Cuts huge token noise from minified bundles. Dot-dirs (.next/.nuxt/…) are
+// already skipped by the leading-dot rule in walkFiles.
+const BUILD_DIRS = new Set(['dist', 'build', 'out', 'coverage', 'vendor']);
 const WALK_CAP = 4000;
 const SEARCH_MAX_FILE_BYTES = 512 * 1024;
 
@@ -23,7 +27,7 @@ function relForward(root: string, file: string): string {
 }
 
 /** Depth-first walk returning file paths, skipping noise/blocked dirs and dot-dirs. */
-function walkFiles(base: string, maxFiles: number): string[] {
+function walkFiles(base: string, maxFiles: number, includeBuilt: boolean): string[] {
   const out: string[] = [];
   const stack: string[] = [base];
   while (stack.length > 0 && out.length < maxFiles) {
@@ -40,7 +44,9 @@ function walkFiles(base: string, maxFiles: number): string[] {
       const s = safeStat(full);
       if (!s) continue;
       if (s.isDirectory()) {
-        if (name.startsWith('.') || SKIP_DIRS.has(name.toLowerCase())) continue;
+        const lower = name.toLowerCase();
+        if (name.startsWith('.') || SKIP_DIRS.has(lower)) continue;
+        if (!includeBuilt && BUILD_DIRS.has(lower)) continue;
         stack.push(full);
       } else if (s.isFile()) {
         out.push(full);
@@ -85,6 +91,7 @@ function listDir(
   sub: string,
   recursive: boolean,
   maxEntries: number,
+  includeBuilt: boolean,
 ): Envelope<unknown> {
   const resolved = resolveResourcePath(resource, sub.trim() === '' ? '.' : sub.trim());
   if (!resolved.ok) return resolved;
@@ -92,7 +99,7 @@ function listDir(
 
   const entries: DirEntry[] = [];
   if (recursive) {
-    for (const file of walkFiles(absPath, maxEntries)) {
+    for (const file of walkFiles(absPath, maxEntries, includeBuilt)) {
       const s = safeStat(file);
       entries.push({ path: relForward(resourceRoot, file), type: 'file', size: s?.size });
     }
@@ -126,12 +133,17 @@ function listDir(
 
 // --- find_files (glob) ---
 
-function findFiles(resource: string, pattern: string, maxResults: number): Envelope<unknown> {
+function findFiles(
+  resource: string,
+  pattern: string,
+  maxResults: number,
+  includeBuilt: boolean,
+): Envelope<unknown> {
   const resolved = resolveResourcePath(resource, '.');
   if (!resolved.ok) return resolved;
   const re = globToRegExp(pattern);
   const matched: string[] = [];
-  for (const file of walkFiles(resolved.data.absPath, WALK_CAP)) {
+  for (const file of walkFiles(resolved.data.absPath, WALK_CAP, includeBuilt)) {
     const rel = relForward(resolved.data.resourceRoot, file);
     if (re.test(rel)) {
       matched.push(rel);
@@ -153,6 +165,7 @@ function searchCode(
   ignoreCase: boolean,
   maxResults: number,
   maxPerFile: number,
+  includeBuilt: boolean,
 ): Envelope<unknown> {
   const resolved = resolveResourcePath(resource, sub.trim() === '' ? '.' : sub.trim());
   if (!resolved.ok) return resolved;
@@ -167,7 +180,7 @@ function searchCode(
 
   const { absPath, resourceRoot } = resolved.data;
   const matches: Match[] = [];
-  for (const file of walkFiles(absPath, WALK_CAP)) {
+  for (const file of walkFiles(absPath, WALK_CAP, includeBuilt)) {
     if (matches.length >= maxResults) break;
     if (!checkReadExtension(file).ok) continue;
     const s = safeStat(file);
@@ -198,6 +211,7 @@ const ListDirInput = z
     path: z.string().optional(),
     recursive: z.boolean().optional(),
     maxEntries: z.number().int().min(1).max(2000).optional(),
+    includeBuilt: z.boolean().optional(),
   })
   .strict();
 
@@ -206,6 +220,7 @@ const FindFilesInput = z
     resource: z.string().min(1),
     pattern: z.string().min(1),
     maxResults: z.number().int().min(1).max(1000).optional(),
+    includeBuilt: z.boolean().optional(),
   })
   .strict();
 
@@ -218,6 +233,7 @@ const SearchCodeInput = z
     ignoreCase: z.boolean().optional(),
     maxResults: z.number().int().min(1).max(500).optional(),
     maxPerFile: z.number().int().min(1).max(100).optional(),
+    includeBuilt: z.boolean().optional(),
   })
   .strict();
 
@@ -225,28 +241,42 @@ export function registerExploreTools(): void {
   register({
     name: 'list_dir',
     description:
-      'List files and folders inside a resource. `recursive:true` returns the file tree (skips ' +
-      'node_modules / dot-dirs). Use this to map a resource before reading or editing.',
+      'List files and folders inside a resource. `recursive:true` returns the file tree. Skips ' +
+      'node_modules / dot-dirs, and build output (dist, build, out, …) unless `includeBuilt:true`. ' +
+      'Use this to map a resource before reading or editing.',
     input: ListDirInput,
     handler: async (input: z.infer<typeof ListDirInput>) =>
-      listDir(input.resource, input.path ?? '', input.recursive ?? false, input.maxEntries ?? 500),
+      listDir(
+        input.resource,
+        input.path ?? '',
+        input.recursive ?? false,
+        input.maxEntries ?? 500,
+        input.includeBuilt ?? false,
+      ),
   });
 
   register({
     name: 'find_files',
     description:
       'Find files in a resource by glob pattern (`**`, `*`, `?`), matched against the path ' +
-      'relative to the resource root, e.g. `server/**/*.lua` or `**/*.vue`.',
+      'relative to the resource root, e.g. `server/**/*.lua` or `**/*.vue`. Skips build output ' +
+      '(dist, build, out, …) unless `includeBuilt:true`.',
     input: FindFilesInput,
     handler: async (input: z.infer<typeof FindFilesInput>) =>
-      findFiles(input.resource, input.pattern, input.maxResults ?? 200),
+      findFiles(
+        input.resource,
+        input.pattern,
+        input.maxResults ?? 200,
+        input.includeBuilt ?? false,
+      ),
   });
 
   register({
     name: 'search_code',
     description:
       'Grep a resource for a substring (default) or regex (`isRegex:true`). Returns file/line/text ' +
-      'matches. Scope to a subfolder with `path`. Skips binaries and non-text files.',
+      'matches. Scope to a subfolder with `path`. Skips binaries, non-text files, and build output ' +
+      '(dist, build, out, …) unless `includeBuilt:true` — keeps results focused on source.',
     input: SearchCodeInput,
     handler: async (input: z.infer<typeof SearchCodeInput>) =>
       searchCode(
@@ -257,6 +287,7 @@ export function registerExploreTools(): void {
         input.ignoreCase ?? false,
         input.maxResults ?? 100,
         input.maxPerFile ?? 20,
+        input.includeBuilt ?? false,
       ),
   });
 }
