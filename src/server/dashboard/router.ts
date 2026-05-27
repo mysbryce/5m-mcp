@@ -158,11 +158,18 @@ export async function handleDashboard(
   ) {
     if (user.role !== 'master') return json(403, { error: 'Master only.' });
 
-    if (sub === '/api/console' && method === 'GET') {
-      return json(200, { lines: deps.console.tail({ lines: 300 }) });
+    if (sub === '/api/console' && (method === 'GET' || method === 'POST')) {
+      // POST { sinceTs } → only lines newer than sinceTs (incremental polling);
+      // otherwise the most recent 300 (initial load).
+      const sinceTs = typeof parsed.sinceTs === 'number' ? parsed.sinceTs : null;
+      const lines =
+        sinceTs !== null
+          ? deps.console.tail({}).filter((l) => l.ts > sinceTs)
+          : deps.console.tail({ lines: 300 });
+      return json(200, { lines });
     }
     if (sub === '/api/audit' && method === 'GET') {
-      return json(200, { entries: readRecentAudit(150) });
+      return json(200, { entries: readRecentAudit(500) });
     }
 
     if (sub === '/api/preferences' && method === 'GET') {

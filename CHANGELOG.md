@@ -6,9 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Dashboard "Logs" tab** (master only) — live server console (ring buffer) and
-  the audit trail of every agent tool call (time / tool / result / caller hash),
-  backed by new `/api/console` + `/api/audit` endpoints and `readRecentAudit()`.
+- **Dashboard "Logs" tab** (master only):
+  - **Console** — realtime (incremental ~1.5s polling via `/api/console` with
+    `sinceTs`), with FiveM `^0`–`^9` caret colors parsed (txAdmin-style) and the
+    color force-reset at end of each line; live toggle + auto-scroll.
+  - **Audit** — the trail of every agent tool call (time / tool / result / caller
+    hash) from `dist/audit.log` (`readRecentAudit`), with tool filter, OK/error
+    filter, sortable columns, and pagination.
 - **Workflow MCP prompts**: `debug-resource` (state → restart → wait_for_console
   → scan_errors → read → fix → verify loop) and `add-db-table` (schema → confirm
   → oxmysql_migrate → verify → parameterised code).
