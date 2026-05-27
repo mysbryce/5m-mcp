@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mysbryce.github.io/5m-mcp/sitemap.xml
