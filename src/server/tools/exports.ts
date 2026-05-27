@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { err, ok } from '../util/envelope';
@@ -37,6 +37,50 @@ function blocklist(): Set<string> {
   return csvSet('agent_api_export_blocked_methods');
 }
 
+const EXPORT_CALL_RE = /\bexports\(\s*['"]([A-Za-z_]\w*)['"]/g;
+const SCAN_SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'vendor', '.svn']);
+
+/** Scan a resource's Lua/JS source for runtime-registered `exports('name', fn)`. */
+function scanSourceExports(root: string): string[] {
+  const names = new Set<string>();
+  const stack = [root];
+  let scanned = 0;
+  while (stack.length > 0 && scanned < 300) {
+    const dir = stack.pop();
+    if (dir === undefined) break;
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const name of entries) {
+      const full = join(dir, name);
+      let isDir = false;
+      let size = 0;
+      try {
+        const s = statSync(full);
+        isDir = s.isDirectory();
+        size = s.size;
+      } catch {
+        continue;
+      }
+      if (isDir) {
+        if (!name.startsWith('.') && !SCAN_SKIP.has(name.toLowerCase())) stack.push(full);
+      } else if (/\.(lua|js|ts)$/i.test(name) && size <= 512 * 1024) {
+        scanned++;
+        try {
+          const text = readFileSync(full, 'utf8');
+          for (const m of text.matchAll(EXPORT_CALL_RE)) names.add(m[1]!);
+        } catch {
+          // ignore unreadable file
+        }
+      }
+    }
+  }
+  return [...names].sort();
+}
+
 export function registerExportTools(): void {
   register({
     name: 'list_exports',
@@ -71,11 +115,16 @@ export function registerExportTools(): void {
         runtime = [];
       }
 
+      // Modern resources register exports at runtime via exports('name', fn) —
+      // those aren't in the manifest nor enumerable on the proxy, so grep source.
+      const source = scanSourceExports(info.path);
+
       return ok({
         resource: input.resource,
         serverExports: manifestServer,
         sharedExports: manifestShared,
         runtimeCallable: runtime,
+        sourceExports: source,
         hint: 'Call any of these with call_export({ resource, name, args }).',
       });
     },
@@ -99,17 +148,24 @@ export function registerExportTools(): void {
       input: { resource: string; name: string; args?: unknown[] },
       ctx: ToolContext,
     ) => {
+      if (!getResourceInfo(input.resource)) {
+        return err('RESOURCE_NOT_FOUND', `Resource not found: ${input.resource}`);
+      }
+
       const gate = isAllowed(input.name, {
         readonly: ctx.convars.readonly,
         blocklist: blocklist(),
       });
       if (!gate.ok) return err('COMMAND_NOT_ALLOWED', gate.reason);
 
-      const target = fxExports()?.[input.resource];
-      if (!target) {
-        return err('RESOURCE_NOT_FOUND', `No exports for resource: ${input.resource}`);
+      // The exports proxy throws "No such export" on access of an unknown name,
+      // so the lookup itself must be guarded — surface it as NOT_FOUND.
+      let fn: unknown;
+      try {
+        fn = (fxExports()?.[input.resource] as Record<string, unknown> | undefined)?.[input.name];
+      } catch {
+        return err('NOT_FOUND', `Export not found: ${input.resource}.${input.name}`);
       }
-      const fn = (target as Record<string, unknown>)[input.name];
       if (typeof fn !== 'function') {
         return err('NOT_FOUND', `Export not found: ${input.resource}.${input.name}`);
       }
