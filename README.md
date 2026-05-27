@@ -305,6 +305,7 @@ npm run docs:deploy            # build + push docs to gh-pages
 ## Security notes
 
 - Token rotation: delete `dist/.agent_token`, restart the resource.
+- The token file is **not** listed in the fxmanifest `files {}` block — that would stream it to clients (`cfx-nui-agent_api/...`). The server reads it from disk via `GetResourcePath`, so it stays server-side only.
 - Self-targeting `ensure/start/stop/restart` for `agent_api` itself is hard-refused — the FiveM Mono runtime SIGSEGVs if you tear a script env down while it's serving HTTP. Use the server console instead.
 - Path sandbox blocks `.env`, `txData`, `database`, `cache` segments *inside* a resource and refuses `..` / absolute paths. Write requires the resource to live under a configured `agent_api_root` / `agent_api_allow_write_paths`.
 - The `oxmysql` plugin defaults to readonly + SELECT only. Open it explicitly via `agent_api_plugin_oxmysql_readonly false` and an expanded `agent_api_plugin_oxmysql_allow_statements` list.

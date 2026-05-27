@@ -39,7 +39,7 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | `ensure_resource` | `ensure <name>`, wait for state `started`, return logs | ACE + per-resource lock |
 | `start_resource` / `stop_resource` / `restart_resource` | Lifecycle verbs | ACE + lock + self-target guard |
 | `run_command` | Allowlisted console command (`refresh`, `players`, `say <text>`, lifecycle verbs) | ACE + parsed allowlist |
-| `run_shell` | Allowlisted shell binary inside a resource folder | `readonly` + shell allowlist + sandboxed `cwd` |
+| `run_shell` | Allowlisted shell binary inside a resource folder (on Windows it spawns through a shell so `.cmd` shims — npm/npx/vite — run, and rejects shell metacharacters in args) | `readonly` + shell allowlist + sandboxed `cwd` |
 
 ## Live player testing
 
@@ -133,5 +133,5 @@ Detects `oxmysql`. Uses `@overextended/oxmysql` for typed access. Defaults to `S
 | Tool | Purpose |
 | --- | --- |
 | `scaffold_fivem_resource_workflow` | **Mandatory pre-flight** for new-resource intent. Returns the full grill workflow text. Engineered description so the agent auto-calls it before `create_resource` / `write_file` |
-| `list_preferences` | The user's saved development preferences (`structure` / `coding` / `ui-design`) + optional example folder each points at. The grill calls this first; a reminder is auto-injected into `write_file` / `create_resource` / `run_shell` / scaffold results. Managed from the dashboard [Preferences tab](/docs/guide/dashboard) |
+| `list_preferences` | The user's saved development preferences (`structure` / `coding` / `ui-design`) + optional example folder each points at. The grill calls this first; a reminder is auto-injected into `create_resource` / `scaffold_fivem_resource_workflow` results. Managed from the dashboard [Preferences tab](/docs/guide/dashboard) |
 | `list_skills` | User-uploaded custom skills with their trigger tools/categories and markdown body. A matching skill is auto-injected into the result of any tool call it's bound to. Managed from the dashboard [Skills tab](/docs/guide/dashboard) |
