@@ -1,6 +1,7 @@
 import { JsonRpcRequest, JsonRpcResponse, RpcErrorCode, rpcError, rpcSuccess } from './jsonrpc';
 import { dispatch, listToolDescriptors } from '../tools/registry';
 import { ToolContext } from '../tools/context';
+import { getPrompt, listPrompts } from './prompts';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_INFO = { name: 'agent_api', version: '0.0.1' };
@@ -13,13 +14,20 @@ function isToolCallParams(value: unknown): value is ToolCallParams {
   return typeof v.name === 'string';
 }
 
+type PromptGetParams = { name: string; arguments?: Record<string, string> };
+
+function isPromptGetParams(value: unknown): value is PromptGetParams {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.name === 'string';
+}
+
 export async function handleMcpRequest(
   req: JsonRpcRequest,
   ctx: ToolContext,
 ): Promise<JsonRpcResponse | null> {
   const id = req.id ?? null;
 
-  // Notifications (no id) — process side-effects, do not reply.
   if (req.id === undefined || req.id === null) {
     if (req.method === 'notifications/initialized') return null;
     if (req.method === 'notifications/cancelled') return null;
@@ -30,7 +38,10 @@ export async function handleMcpRequest(
     case 'initialize':
       return rpcSuccess(id, {
         protocolVersion: PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: {
+          tools: { listChanged: false },
+          prompts: { listChanged: false },
+        },
         serverInfo: SERVER_INFO,
       });
 
@@ -53,6 +64,23 @@ export async function handleMcpRequest(
           },
         ],
         isError: !envelope.ok,
+      });
+    }
+
+    case 'prompts/list':
+      return rpcSuccess(id, { prompts: listPrompts() });
+
+    case 'prompts/get': {
+      if (!isPromptGetParams(req.params)) {
+        return rpcError(id, RpcErrorCode.INVALID_PARAMS, 'Missing prompt name.');
+      }
+      const prompt = getPrompt(req.params.name);
+      if (!prompt) {
+        return rpcError(id, RpcErrorCode.INVALID_PARAMS, `Unknown prompt: ${req.params.name}`);
+      }
+      return rpcSuccess(id, {
+        description: prompt.description,
+        messages: prompt.build(req.params.arguments ?? {}),
       });
     }
 

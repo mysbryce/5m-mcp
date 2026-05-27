@@ -33,6 +33,8 @@ import { installProbeListener } from './players/probes';
 import { ALL_PLUGINS } from './plugins';
 import { loadPlugins, logPluginStatuses } from './plugins/loader';
 import { registerListPlugins, setPluginSnapshot } from './tools/plugins';
+import { registerPrompt } from './mcp/prompts';
+import { scaffoldFivemPrompt } from './mcp/prompts/scaffoldFivem';
 
 const VERSION = '0.0.1';
 const RESOURCE_NAME = GetCurrentResourceName();
@@ -72,6 +74,8 @@ function main(): void {
 
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
+
+  registerPrompt(scaffoldFivemPrompt);
 
   registerListPlugins();
   const pluginSnapshot = loadPlugins(ALL_PLUGINS, convars);
