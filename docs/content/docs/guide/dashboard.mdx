@@ -1,0 +1,68 @@
+---
+title: Web dashboard
+description: A human control panel at /agent_api/dashboard — master account, user management, and live sandbox permission editing.
+---
+
+`agent_api` serves a web dashboard from the same HTTP handler as the MCP endpoint. It's a separate, human-facing surface — it does **not** use the agent token. Operators sign in with their own accounts and manage the sandbox permission convars live.
+
+```
+http://127.0.0.1:30120/agent_api/dashboard
+```
+
+The URL is printed in the FiveM console on first start.
+
+## First run & the master account
+
+- On the very first visit, with **zero users**, the dashboard shows a **signup** screen.
+- The first account created becomes the **master**.
+- Signup then **closes permanently**. There is no public registration once a master exists — the master creates every subsequent account from the **Users** tab.
+
+This means the first person to reach the dashboard claims ownership. On a fresh install, open the dashboard and create your master account immediately.
+
+## Accounts
+
+- Passwords are hashed with scrypt + a per-user salt (timing-safe compare). Stored in `dist/users.json` (gitignored).
+- Sessions last 12 hours, carried in an `x-dashboard-session` header (stored in the browser's localStorage).
+- The master can create `member` or additional `master` accounts and remove anyone except themselves. Members see only the Permissions tab.
+
+## Permissions tab
+
+The dashboard edits the sandbox convars directly. Changes:
+
+1. **Apply live** — `SetConvar` updates the values read per-call (oxmysql gates, blocklists, shell allowlist), and a reload hook refreshes the cached config object (readonly, write/control roots, limits).
+2. **Persist** — written to `dist/permissions.json` and re-applied at boot before convars are read, so they survive restarts.
+
+Editable groups:
+
+| Group | Convars |
+| --- | --- |
+| Core | `agent_api_readonly`, `agent_api_allow_write_paths`, `agent_api_allow_control_paths`, `agent_api_rate_per_minute` |
+| Natives | `agent_api_client_blocked_natives`, `agent_api_server_blocked_natives` |
+| Shell | `agent_api_shell_allowed_commands` |
+| Plugins | `agent_api_plugin_esx_enabled`, `agent_api_plugin_oxlib_enabled`, `agent_api_plugin_oxmysql_enabled`, `agent_api_plugin_oxmysql_readonly`, `agent_api_plugin_oxmysql_allow_statements`, `agent_api_plugin_esx_blocked_methods`, `agent_api_plugin_oxlib_blocked_methods` |
+
+Booleans render as toggles, enums as selects, CSV/int as text fields. Editing one and hitting **Save** flips it for the live runtime instantly — no resource restart needed.
+
+See [Configuration](/docs/guide/configuration) for what each convar does.
+
+## Relationship to `server.cfg`
+
+Convars set in `server.cfg` are the boot defaults. The dashboard layers `dist/permissions.json` on top of them at startup. If you set the same convar in both, the dashboard override wins (it's applied after the cfg is read, and again on every save). To reset to your `server.cfg` baseline, delete `dist/permissions.json` and restart.
+
+## Build
+
+The dashboard UI is a Vite + Vue 3 project under `dashboard/`, built to a single self-contained `dist/dashboard/index.html` that the resource serves verbatim.
+
+```sh
+npm run dashboard:install   # once
+npm run dashboard:dev       # hot-reload dev server (proxy API to your FiveM host)
+npm run dashboard:build     # → dist/dashboard/index.html
+```
+
+The built file is committed to the repo, so a fresh `ensure agent_api` serves a working dashboard with no build step. Maintainers re-run `dashboard:build` and commit the result when the UI changes.
+
+## Security notes
+
+- The dashboard binds to `127.0.0.1` like the rest of the HTTP surface. For remote access, SSH-tunnel port 30120.
+- A dashboard session can change every sandbox gate — treat master credentials like server admin credentials.
+- The agent token and dashboard accounts are independent. Rotating one does not affect the other.

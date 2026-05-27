@@ -141,6 +141,17 @@ All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, er
 | `client_call_native`          | **Invoke any client native** on a subject. Arg tokens: `$ped`, `$player`, `$serverId`, `$vehicle`, `$lastVehicle`, `$coords`, `$heading`. Readonly verb gate (`Get/Has/Is/Does/Can/Will/Network`) + blocklist. |
 | `client_list_natives`         | Enumerate client globals (prefix-filterable) — discovery for `client_call_native` |
 
+### Server natives (2), shell (1), screenshots (2), workflow (1)
+
+| Tool                  | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `server_call_native`  | Invoke any server-side native by name. Readonly verb gate + built-in danger blocklist (`DropPlayer`, `ExecuteCommand`, `StopResource`, …) + convar blocklist |
+| `server_list_natives` | Enumerate server globals (prefix-filterable)                              |
+| `run_shell`           | Run an allowlisted binary (`npm`/`npx`/`pnpm`/`yarn`/`bun`/`vite`/`git`/`node`) inside a resource folder. Used by the scaffold workflow to `npm create vite` + build UIs |
+| `screenshot_nui`      | Capture the live NUI via CEF CDP at `:13172`. `mode: isolate \| clip \| full` to scope to one resource's iframe |
+| `delete_screenshot`   | Remove a screenshot under `dist/screenshots/` (sandboxed)                 |
+| `scaffold_fivem_resource_workflow` | **Mandatory pre-flight** for new-resource intent — returns the grill workflow the agent must complete before scaffolding. Also exposed as the MCP prompt `scaffold-fivem-resource` |
+
 #### Opt-in flow
 
 The player joins the server and types in chat:
@@ -203,18 +214,23 @@ Reflective dispatch helpers — `csvSet`, `isAllowed`, `listCallable`, `safeSeri
 
 ---
 
-## Optional: UI screenshot capability
+## Web dashboard
 
-`screenshot_nui` uses Playwright's CDP client to attach to FiveM's existing CEF browser at `http://localhost:13172` and screenshot a live NUI page in-place. **No headless Chromium needs to be installed** — we don't launch a new browser, we connect to the one already running inside FiveM.
+A human control panel is served at:
 
-The Playwright npm package alone is enough (~16 MB):
-
-```sh
-cd <agent_api folder>
-npm install
+```
+http://127.0.0.1:30120/agent_api/dashboard
 ```
 
-The tool saves to `dist/screenshots/`. Always pair with `delete_screenshot` after viewing. If FiveM was launched without the CEF DevTools port exposed, the tool reports `no CEF pages exposed`.
+- First visit with no users → **signup**; the first account becomes the **master**. Signup then closes — the master creates every other account from the Users tab.
+- The **Permissions** tab edits the sandbox convars (readonly, write/control roots, rate limit, native blocklists, shell allowlist, plugin gates) **live** — `SetConvar` + a config reload, persisted to `dist/permissions.json`, re-applied at boot. No restart needed.
+- Separate from the agent token: dashboard accounts are scrypt-hashed in `dist/users.json`, 12h sessions.
+
+The UI is a Vite + Vue 3 project under `dashboard/`, built to a single committed `dist/dashboard/index.html`. See [`docs/guide/dashboard`](https://mysbryce.github.io/5m-mcp/docs/guide/dashboard).
+
+## UI screenshots (`screenshot_nui`)
+
+`screenshot_nui` attaches to FiveM's running CEF over the Chrome DevTools Protocol at `http://localhost:13172` (raw WebSocket — no Playwright, no headless browser) and captures the live NUI surface. Pass `resource` + `mode: isolate` to hide every other resource's iframe for a clean shot. Saves to `dist/screenshots/`; always follow with `delete_screenshot`.
 
 ## Dev
 
@@ -226,7 +242,13 @@ npm run lint                   # oxlint
 npm run fmt                    # oxfmt (2 space, single quote, semi, lf)
 npm run check                  # typecheck + lint + fmt:check
 npm run smoke                  # hit every tool against the live server
+npm run smoke:stdio            # exercise the stdio shim end-to-end
 npm run generate:resource      # build + assemble drop-in folder at out/agent_api/
+
+npm run dashboard:dev          # dashboard UI hot-reload (Vite)
+npm run dashboard:build        # → dist/dashboard/index.html (commit the result)
+npm run docs:dev               # docs site (Next.js + fumadocs)
+npm run docs:deploy            # build + push docs to gh-pages
 ```
 
 `scripts/dev-link.ps1` creates an NTFS junction from a FiveM server's `resources/[agent]/agent_api` to this repo so `restart agent_api` always picks up the latest `dist/*.js`.

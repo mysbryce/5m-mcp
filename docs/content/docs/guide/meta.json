@@ -6,6 +6,7 @@
     "install",
     "configuration",
     "ace",
+    "dashboard",
     "---Workflows---",
     "scaffold",
     "ui-testing",

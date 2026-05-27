@@ -5,6 +5,8 @@ description: Every convar agent_api reads, organised by area.
 
 Everything `agent_api` exposes is convar-driven. All convars are read once at resource start; restart `agent_api` to pick up a change.
 
+> The sandbox-permission subset (readonly, write/control roots, rate limit, native blocklists, shell allowlist, plugin gates) can also be edited **live** from the [web dashboard](/docs/guide/dashboard) — no restart, persisted to `dist/permissions.json`.
+
 ## Core
 
 ```ini
