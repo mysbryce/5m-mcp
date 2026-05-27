@@ -38,6 +38,8 @@ FiveM resource that exposes a safe, local **MCP** (Model Context Protocol) tool 
    ```
    Paste into `~/.claude.json` under `"mcpServers"` (or project `.mcp.json`). Token is auto-generated and persisted to `dist/.agent_token`.
 
+   **Codex CLI** users: see [`docs/install-codex.md`](./docs/install-codex.md) for a copy-paste prompt that installs the MCP server into your Codex config automatically.
+
    **MCP clients that only speak stdio** (no HTTP transport support) can use the bundled shim at `dist/mcp-stdio.js`:
    ```json
    "agent_api": {
