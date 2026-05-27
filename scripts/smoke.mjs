@@ -79,20 +79,13 @@ async function main() {
   );
 
   summarize('run_command status', await post('run_command', { command: 'status', waitMs: 300 }));
-  summarize(
-    'reject banned command',
-    await post('run_command', { command: 'quit' }),
-    { expectFail: true },
-  );
-  summarize(
-    'reject unknown verb',
-    await post('run_command', { command: 'rm -rf /' }),
-    { expectFail: true },
-  );
-  summarize(
-    'ensure_resource (self)',
-    await post('ensure_resource', { name: 'agent_api' }),
-  );
+  summarize('reject banned command', await post('run_command', { command: 'quit' }), {
+    expectFail: true,
+  });
+  summarize('reject unknown verb', await post('run_command', { command: 'rm -rf /' }), {
+    expectFail: true,
+  });
+  summarize('ensure_resource (self)', await post('ensure_resource', { name: 'agent_api' }));
   const badAuth = await fetch(`${URL}/tools/health`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-agent-token': 'wrong' },
