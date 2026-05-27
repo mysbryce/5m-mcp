@@ -12,7 +12,6 @@ docs/node_modules/
 docs/next-env.d.ts
 dashboard/node_modules/
 dashboard/dist/
-dist/dashboard/
 *.log
 .DS_Store
 .idea/

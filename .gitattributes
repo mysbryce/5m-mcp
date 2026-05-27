@@ -1,4 +1,5 @@
 dist/*.js linguist-generated=true
+dist/dashboard/index.html linguist-generated=true
 * text=auto eol=lf
 *.lua text eol=lf
 *.md text eol=lf
