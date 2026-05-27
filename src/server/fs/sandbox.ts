@@ -2,6 +2,16 @@ import { resolve, sep } from 'node:path';
 import { Envelope, err, ok } from '../util/envelope';
 import { getResourceInfo } from '../runtime/resources';
 
+const WRITE_EXTENSIONS = new Set(['.lua', '.js', '.ts', '.json', '.cfg', '.md', '.html', '.css']);
+
+function normalizeSlashes(p: string): string {
+  return p.replaceAll('\\', '/');
+}
+
+function lowerNorm(p: string): string {
+  return normalizeSlashes(p).toLowerCase();
+}
+
 const BLOCKED_SEGMENTS = ['.env', 'txData', 'database', 'cache'];
 const ALLOWED_EXTENSIONS = new Set([
   '.lua',
@@ -82,3 +92,43 @@ export function checkReadExtension(absPath: string): Envelope<true> {
   }
   return ok(true);
 }
+
+export function checkWriteExtension(absPath: string): Envelope<true> {
+  const ext = lowerExt(absPath);
+  if (!WRITE_EXTENSIONS.has(ext)) {
+    return err('EXTENSION_NOT_ALLOWED', `Write extension not allowed: ${ext}`, {
+      allowed: [...WRITE_EXTENSIONS],
+    });
+  }
+  return ok(true);
+}
+
+export function pathWithinAnyRoot(absPath: string, roots: string[]): boolean {
+  const target = lowerNorm(absPath);
+  return roots.some((root) => {
+    const r = lowerNorm(root);
+    if (!r) return false;
+    return target.includes(`/${r}/`);
+  });
+}
+
+export function checkWriteRoot(resourceAbsPath: string, writeRoots: string[]): Envelope<true> {
+  if (!pathWithinAnyRoot(resourceAbsPath, writeRoots)) {
+    return err('PATH_OUTSIDE_SANDBOX', 'Resource is not within any configured write root.', {
+      writeRoots,
+    });
+  }
+  return ok(true);
+}
+
+export function deriveWriteRootAbsolute(writeRoot: string): string | null {
+  const ourPath = resolve(GetResourcePath(GetCurrentResourceName()));
+  const lowerOur = lowerNorm(ourPath);
+  const lowerRoot = lowerNorm(writeRoot);
+  const needle = `/${lowerRoot}/`;
+  const idx = lowerOur.indexOf(needle);
+  if (idx < 0) return null;
+  return normalizeSlashes(ourPath).slice(0, idx + 1 + writeRoot.length);
+}
+
+export const VALID_RESOURCE_NAME = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;

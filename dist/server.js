@@ -4346,6 +4346,13 @@ function installHttpRouter(deps) {
   });
 }
 
+// src/server/fs/create.ts
+var import_node_fs3 = require("node:fs");
+var import_node_path4 = require("node:path");
+
+// src/server/fs/sandbox.ts
+var import_node_path3 = require("node:path");
+
 // src/server/runtime/resources.ts
 function listResources() {
   const count = GetNumResources();
@@ -4367,58 +4374,14 @@ function getResourceInfo(name) {
   return { name, state, path: GetResourcePath(name) };
 }
 
-// src/server/tools/getResourceState.ts
-function registerGetResourceState() {
-  register({
-    name: "get_resource_state",
-    description: "Look up the lifecycle state and path of a single resource.",
-    input: external_exports.object({ name: external_exports.string().min(1) }).strict(),
-    handler: async (input) => {
-      const info = getResourceInfo(input.name);
-      if (!info) {
-        return err("RESOURCE_NOT_FOUND", `Resource not found: ${input.name}`);
-      }
-      return ok(info);
-    }
-  });
-}
-
-// src/server/tools/health.ts
-function registerHealth(version) {
-  register({
-    name: "health",
-    description: "Liveness probe. Returns version and uptime.",
-    input: external_exports.object({}).strict(),
-    handler: async () => ok({
-      status: "up",
-      resource: GetCurrentResourceName(),
-      version,
-      uptimeMs: Math.floor(process.uptime() * 1e3)
-    })
-  });
-}
-
-// src/server/tools/listResources.ts
-function registerListResources() {
-  register({
-    name: "list_resources",
-    description: "Enumerate all registered FiveM resources with their state.",
-    input: external_exports.object({
-      filterState: external_exports.string().optional()
-    }).strict(),
-    handler: async (input) => {
-      const all = listResources();
-      const filtered = input.filterState ? all.filter((r) => r.state === input.filterState) : all;
-      return ok({ resources: filtered, count: filtered.length });
-    }
-  });
-}
-
-// src/server/fs/read.ts
-var import_node_fs3 = require("node:fs");
-
 // src/server/fs/sandbox.ts
-var import_node_path3 = require("node:path");
+var WRITE_EXTENSIONS = /* @__PURE__ */ new Set([".lua", ".js", ".ts", ".json", ".cfg", ".md", ".html", ".css"]);
+function normalizeSlashes(p) {
+  return p.replaceAll("\\", "/");
+}
+function lowerNorm(p) {
+  return normalizeSlashes(p).toLowerCase();
+}
 var BLOCKED_SEGMENTS = [".env", "txData", "database", "cache"];
 var ALLOWED_EXTENSIONS = /* @__PURE__ */ new Set([
   ".lua",
@@ -4480,8 +4443,201 @@ function checkReadExtension(absPath) {
   }
   return ok(true);
 }
+function checkWriteExtension(absPath) {
+  const ext = lowerExt(absPath);
+  if (!WRITE_EXTENSIONS.has(ext)) {
+    return err("EXTENSION_NOT_ALLOWED", `Write extension not allowed: ${ext}`, {
+      allowed: [...WRITE_EXTENSIONS]
+    });
+  }
+  return ok(true);
+}
+function pathWithinAnyRoot(absPath, roots) {
+  const target = lowerNorm(absPath);
+  return roots.some((root) => {
+    const r = lowerNorm(root);
+    if (!r) return false;
+    return target.includes(`/${r}/`);
+  });
+}
+function checkWriteRoot(resourceAbsPath, writeRoots) {
+  if (!pathWithinAnyRoot(resourceAbsPath, writeRoots)) {
+    return err("PATH_OUTSIDE_SANDBOX", "Resource is not within any configured write root.", {
+      writeRoots
+    });
+  }
+  return ok(true);
+}
+function deriveWriteRootAbsolute(writeRoot) {
+  const ourPath = (0, import_node_path3.resolve)(GetResourcePath(GetCurrentResourceName()));
+  const lowerOur = lowerNorm(ourPath);
+  const lowerRoot = lowerNorm(writeRoot);
+  const needle = `/${lowerRoot}/`;
+  const idx = lowerOur.indexOf(needle);
+  if (idx < 0) return null;
+  return normalizeSlashes(ourPath).slice(0, idx + 1 + writeRoot.length);
+}
+var VALID_RESOURCE_NAME = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+
+// src/server/fs/create.ts
+var CreateResourceInput = external_exports.object({
+  name: external_exports.string().min(1),
+  writeRoot: external_exports.string().optional(),
+  description: external_exports.string().optional(),
+  author: external_exports.string().optional()
+});
+var MANIFEST_TEMPLATE = (name, author, description) => `fx_version 'cerulean'
+game 'common'
+
+author '${author}'
+description '${description}'
+version '0.1.0'
+
+server_scripts {
+  'server.lua',
+}
+`;
+var SERVER_LUA = (name) => `print('^2[${name}]^7 up')
+`;
+var README_MD = (name) => `# ${name}
+
+Scaffolded by agent_api.
+`;
+async function createResource(input, ctx) {
+  if (ctx.readonly) {
+    return err("COMMAND_NOT_ALLOWED", "Server is in read-only mode.");
+  }
+  if (!VALID_RESOURCE_NAME.test(input.name)) {
+    return err("INVALID_INPUT", "Resource name must be [a-zA-Z][a-zA-Z0-9_-]{0,63}.", {
+      name: input.name
+    });
+  }
+  const writeRoot = input.writeRoot ?? ctx.writeRoots[0];
+  if (!writeRoot) {
+    return err("PATH_OUTSIDE_SANDBOX", "No write root configured.");
+  }
+  if (!ctx.writeRoots.includes(writeRoot)) {
+    return err("PATH_OUTSIDE_SANDBOX", `writeRoot must be one of: ${ctx.writeRoots.join(", ")}`);
+  }
+  const rootAbs = deriveWriteRootAbsolute(writeRoot);
+  if (!rootAbs) {
+    return err(
+      "PATH_OUTSIDE_SANDBOX",
+      `Cannot resolve write root to absolute path: ${writeRoot}. agent_api must itself live inside this root.`
+    );
+  }
+  const resourceAbs = (0, import_node_path4.join)(rootAbs, input.name);
+  try {
+    await import_node_fs3.promises.stat(resourceAbs);
+    return err("INVALID_INPUT", `Resource folder already exists: ${input.name}`);
+  } catch {
+  }
+  const author = input.author ?? "agent";
+  const description = input.description ?? "Generated resource";
+  await import_node_fs3.promises.mkdir(resourceAbs, { recursive: true });
+  const files = [
+    ["fxmanifest.lua", MANIFEST_TEMPLATE(input.name, author, description)],
+    ["server.lua", SERVER_LUA(input.name)],
+    ["README.md", README_MD(input.name)]
+  ];
+  await Promise.all(
+    files.map(([name, content]) => import_node_fs3.promises.writeFile((0, import_node_path4.join)(resourceAbs, name), content, "utf8"))
+  );
+  return ok({
+    name: input.name,
+    absPath: resourceAbs,
+    files: files.map(([n]) => n)
+  });
+}
+
+// src/server/runtime/locks.ts
+var chains = /* @__PURE__ */ new Map();
+var GLOBAL_LOCK = "__global__";
+async function withLock(key, fn) {
+  const prev = chains.get(key) ?? Promise.resolve();
+  const next = prev.then(
+    () => fn(),
+    () => fn()
+  );
+  const safe = next.catch(() => void 0);
+  chains.set(key, safe);
+  try {
+    return await next;
+  } finally {
+    if (chains.get(key) === safe) {
+      chains.delete(key);
+    }
+  }
+}
+
+// src/server/tools/createResource.ts
+function registerCreateResource() {
+  register({
+    name: "create_resource",
+    description: "Scaffold a new FiveM resource (fxmanifest.lua, server.lua, README.md) inside one of the configured write roots. Does not auto-refresh; call refresh_resources separately.",
+    input: CreateResourceInput,
+    handler: async (input, ctx) => {
+      const key = input.name || GLOBAL_LOCK;
+      return withLock(
+        key,
+        () => createResource(input, {
+          writeRoots: ctx.convars.writeRoots,
+          readonly: ctx.convars.readonly
+        })
+      );
+    }
+  });
+}
+
+// src/server/tools/getResourceState.ts
+function registerGetResourceState() {
+  register({
+    name: "get_resource_state",
+    description: "Look up the lifecycle state and path of a single resource.",
+    input: external_exports.object({ name: external_exports.string().min(1) }).strict(),
+    handler: async (input) => {
+      const info = getResourceInfo(input.name);
+      if (!info) {
+        return err("RESOURCE_NOT_FOUND", `Resource not found: ${input.name}`);
+      }
+      return ok(info);
+    }
+  });
+}
+
+// src/server/tools/health.ts
+function registerHealth(version) {
+  register({
+    name: "health",
+    description: "Liveness probe. Returns version and uptime.",
+    input: external_exports.object({}).strict(),
+    handler: async () => ok({
+      status: "up",
+      resource: GetCurrentResourceName(),
+      version,
+      uptimeMs: Math.floor(process.uptime() * 1e3)
+    })
+  });
+}
+
+// src/server/tools/listResources.ts
+function registerListResources() {
+  register({
+    name: "list_resources",
+    description: "Enumerate all registered FiveM resources with their state.",
+    input: external_exports.object({
+      filterState: external_exports.string().optional()
+    }).strict(),
+    handler: async (input) => {
+      const all = listResources();
+      const filtered = input.filterState ? all.filter((r) => r.state === input.filterState) : all;
+      return ok({ resources: filtered, count: filtered.length });
+    }
+  });
+}
 
 // src/server/fs/read.ts
+var import_node_fs4 = require("node:fs");
 var ReadFileInput = external_exports.object({
   resource: external_exports.string().min(1),
   path: external_exports.string().min(1),
@@ -4495,7 +4651,7 @@ async function readFile(input, maxBytes) {
   if (!extCheck.ok) return extCheck;
   let stat;
   try {
-    stat = await import_node_fs3.promises.stat(resolved.data.absPath);
+    stat = await import_node_fs4.promises.stat(resolved.data.absPath);
   } catch {
     return err("NOT_FOUND", "File not found.", {
       resource: input.resource,
@@ -4516,7 +4672,7 @@ async function readFile(input, maxBytes) {
       { size: stat.size, limit: maxBytes }
     );
   }
-  const handle = await import_node_fs3.promises.open(resolved.data.absPath, "r");
+  const handle = await import_node_fs4.promises.open(resolved.data.absPath, "r");
   try {
     const buf = Buffer.alloc(length);
     if (length > 0) {
@@ -4544,8 +4700,36 @@ function registerReadFile() {
   });
 }
 
-// src/server/tools/tailConsole.ts
+// src/server/runtime/refresh.ts
+async function runRefresh() {
+  ExecuteCommand("refresh");
+}
+
+// src/server/tools/refreshResources.ts
 var Input = external_exports.object({
+  waitMs: external_exports.number().int().min(0).max(5e3).optional()
+}).strict();
+var sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+function registerRefreshResources() {
+  register({
+    name: "refresh_resources",
+    description: "Execute the FiveM `refresh` command so newly created folders are discovered. Returns console lines captured during the wait window.",
+    input: Input,
+    handler: async (input, ctx) => {
+      const wait = input.waitMs ?? 750;
+      return withLock(GLOBAL_LOCK, async () => {
+        const startIdx = ctx.console.length();
+        await runRefresh();
+        if (wait > 0) await sleep(wait);
+        const lines = ctx.console.slice(startIdx);
+        return ok({ lines, count: lines.length });
+      });
+    }
+  });
+}
+
+// src/server/tools/tailConsole.ts
+var Input2 = external_exports.object({
   lines: external_exports.number().int().min(1).max(5e3).optional(),
   sinceTs: external_exports.number().int().min(0).optional(),
   channel: external_exports.string().optional()
@@ -4554,7 +4738,7 @@ function registerTailConsole() {
   register({
     name: "tail_console",
     description: "Return recent lines from the in-memory console ring buffer. Filter by since timestamp (ms epoch) or channel.",
-    input: Input,
+    input: Input2,
     handler: async (input, ctx) => {
       const opts = {};
       if (input.lines !== void 0) opts.lines = input.lines;
@@ -4566,6 +4750,70 @@ function registerTailConsole() {
         count: lines.length,
         bufferLength: ctx.console.length()
       });
+    }
+  });
+}
+
+// src/server/fs/write.ts
+var import_node_fs5 = require("node:fs");
+var import_node_path5 = require("node:path");
+var WriteFileInput = external_exports.object({
+  resource: external_exports.string().min(1),
+  path: external_exports.string().min(1),
+  content: external_exports.string(),
+  createDirs: external_exports.boolean().optional()
+});
+async function writeFile(input, ctx) {
+  if (ctx.readonly) {
+    return err("COMMAND_NOT_ALLOWED", "Server is in read-only mode.");
+  }
+  const bytes = Buffer.byteLength(input.content, "utf8");
+  if (bytes > ctx.maxBytes) {
+    return err("FILE_TOO_LARGE", `Content exceeds ${ctx.maxBytes} bytes.`, {
+      size: bytes,
+      limit: ctx.maxBytes
+    });
+  }
+  const resolved = resolveResourcePath(input.resource, input.path);
+  if (!resolved.ok) return resolved;
+  const rootCheck = checkWriteRoot(resolved.data.resourceRoot, ctx.writeRoots);
+  if (!rootCheck.ok) return rootCheck;
+  const extCheck = checkWriteExtension(resolved.data.absPath);
+  if (!extCheck.ok) return extCheck;
+  let existed = true;
+  try {
+    await import_node_fs5.promises.stat(resolved.data.absPath);
+  } catch {
+    existed = false;
+  }
+  if (input.createDirs) {
+    await import_node_fs5.promises.mkdir((0, import_node_path5.dirname)(resolved.data.absPath), { recursive: true });
+  }
+  await import_node_fs5.promises.writeFile(resolved.data.absPath, input.content, "utf8");
+  return ok({
+    resource: input.resource,
+    path: input.path,
+    bytes,
+    created: !existed
+  });
+}
+
+// src/server/tools/writeFile.ts
+function registerWriteFile() {
+  register({
+    name: "write_file",
+    description: "Write a file inside a resource that lives under one of the configured write roots. Pass createDirs:true to mkdir -p the parent directory.",
+    input: WriteFileInput,
+    handler: async (input, ctx) => {
+      const key = input.resource || GLOBAL_LOCK;
+      return withLock(
+        key,
+        () => writeFile(input, {
+          maxBytes: ctx.convars.maxFileBytes,
+          writeRoots: ctx.convars.writeRoots,
+          readonly: ctx.convars.readonly
+        })
+      );
     }
   });
 }
@@ -4584,11 +4832,14 @@ function main() {
   registerGetResourceState();
   registerReadFile();
   registerTailConsole();
+  registerWriteFile();
+  registerCreateResource();
+  registerRefreshResources();
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer }
   });
-  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M1)`);
+  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M2)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 main();
