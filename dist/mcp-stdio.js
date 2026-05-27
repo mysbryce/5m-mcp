@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-"use strict";var f=Object.defineProperty;var o=(e,t)=>f(e,"name",{value:t,configurable:!0});var d=process.env.AGENT_API_URL??"http://127.0.0.1:30120/agent_api/mcp",a=process.env.AGENT_API_TOKEN;a||(process.stderr.write(`[mcp-stdio] AGENT_API_TOKEN is required
-`),process.exit(1));function n(e){process.stderr.write(`[mcp-stdio] ${e}
-`)}o(n,"logErr");async function p(e){if(!e.trim())return;let t;try{t=JSON.parse(e)}catch(i){n(`bad JSON frame from stdin: ${i.message}`);return}let s;try{s=await fetch(d,{method:"POST",headers:{"Content-Type":"application/json","x-agent-token":a},body:JSON.stringify(t)})}catch(i){n(`fetch failed: ${i.message}`);return}if(s.status===202)return;let c=await s.text();c&&process.stdout.write(c+`
-`)}o(p,"forward");var r="";process.stdin.setEncoding("utf8");process.stdin.on("data",e=>{r+=e;let t;for(;(t=r.indexOf(`
-`))>=0;){let s=r.slice(0,t);r=r.slice(t+1),p(s)}});process.stdin.on("end",()=>{r.trim()&&p(r)});process.stdin.on("error",e=>{n(`stdin error: ${e.message}`),process.exit(1)});n(`bridge ready -> ${d}`);
+"use strict";var url=process.env.AGENT_API_URL??"http://127.0.0.1:30120/agent_api/mcp",token=process.env.AGENT_API_TOKEN;token||(process.stderr.write(`[mcp-stdio] AGENT_API_TOKEN is required
+`),process.exit(1));function logErr(msg){process.stderr.write(`[mcp-stdio] ${msg}
+`)}async function forward(frame){if(!frame.trim())return;let parsed;try{parsed=JSON.parse(frame)}catch(e){logErr(`bad JSON frame from stdin: ${e.message}`);return}let res;try{res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json","x-agent-token":token},body:JSON.stringify(parsed)})}catch(e){logErr(`fetch failed: ${e.message}`);return}if(res.status===202)return;let text=await res.text();text&&process.stdout.write(text+`
+`)}var pending="";process.stdin.setEncoding("utf8");process.stdin.on("data",chunk=>{pending+=chunk;let idx;for(;(idx=pending.indexOf(`
+`))>=0;){let line=pending.slice(0,idx);pending=pending.slice(idx+1),forward(line)}});process.stdin.on("end",()=>{pending.trim()&&forward(pending)});process.stdin.on("error",e=>{logErr(`stdin error: ${e.message}`),process.exit(1)});logErr(`bridge ready -> ${url}`);

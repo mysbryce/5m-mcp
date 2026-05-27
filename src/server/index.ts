@@ -40,7 +40,7 @@ import { scaffoldFivemPrompt } from './mcp/prompts/scaffoldFivem';
 import { registerScaffoldFivemWorkflow } from './tools/scaffoldWorkflow';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {

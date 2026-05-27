@@ -12,11 +12,15 @@ const common = {
   logLevel: 'info',
   legalComments: 'none',
   sourcemap: false,
-  minify: !dev,
+  // NB: identifier minification is intentionally OFF. FiveM's CitizenJS
+  // script host re-evaluates the CJS bundle in a way that surfaces esbuild's
+  // short-name reuse as "Identifier '_r' has already been declared". Whitespace
+  // + syntax minification still shrink the bundle without renaming identifiers.
+  minify: false,
   minifyWhitespace: !dev,
-  minifyIdentifiers: !dev,
   minifySyntax: !dev,
-  keepNames: !dev,
+  minifyIdentifiers: false,
+  keepNames: false,
 };
 
 const targets = [

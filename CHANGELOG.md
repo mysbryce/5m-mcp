@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] — 2026-05-27
+
+### Fixed
+
+- **Resource failed to load** with `SyntaxError: Identifier '_r' has already
+  been declared`. esbuild's identifier minification produced short names that
+  FiveM's CitizenJS script host rejected as duplicate top-level declarations.
+  Disabled `minifyIdentifiers` (and `keepNames`); whitespace + syntax
+  minification stay on. dist/server.js is larger but loads correctly.
+
 ## [0.1.0] — 2026-05-27
 
 Feature release on top of the M0–M6 core.
