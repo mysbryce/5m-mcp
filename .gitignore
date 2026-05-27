@@ -1,6 +1,7 @@
 node_modules/
 dist/.agent_token
 dist/audit.log
+out/
 *.log
 .DS_Store
 .idea/
