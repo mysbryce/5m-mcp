@@ -60,7 +60,7 @@ Each item has a free-text description and an **optional example folder**, picked
 Preferences are file-backed in `dist/preferences.json` (not hardcoded) and reach the agent two ways:
 
 1. The MCP tool **`list_preferences`** returns every enabled preference plus instructions to read the referenced example folders and mirror them.
-2. A compact reminder is **auto-injected** into the results of `write_file`, `create_resource`, `scaffold_fivem_resource_workflow`, and `run_shell`, so the agent never forgets to check them.
+2. A compact reminder is **auto-injected** into the results of `create_resource` and `scaffold_fivem_resource_workflow` (the "starting new work" tools), so the agent checks them at the right moment without noise on every edit.
 
 The [scaffold grill](/docs/guide/scaffold) calls `list_preferences` first and asks, per type, whether to adopt your preference as the guideline for the new resource.
 
@@ -70,14 +70,14 @@ Upload your own **custom skill** (write markdown inline or upload a `.md` file) 
 
 Skills are file-backed: metadata in `dist/skills.json`, each body in `dist/skills/<id>.md`. The MCP tool **`list_skills`** returns them for inspection, but you rarely need it — binding + auto-injection is the intended path.
 
-## Logs tab (master only)
+## Monitor tab (master only)
 
-Two read-only views into what the agent has been doing, served from the same handler:
+The master's default landing tab — two read-only views into what's happening, served from the same handler:
 
-- **Console** — the most recent lines from the in-memory console ring buffer (the same buffer `tail_console` reads), so you can watch resource output and errors live.
-- **Audit** — the audit trail of every agent tool call: timestamp, tool name, result code, and the (hashed) caller token. Backed by `dist/audit.log`.
+- **Console** — **realtime** server console (incremental ~1.5s polling). FiveM `^0`–`^9` caret colors are parsed (txAdmin-style) with the color reset at end of each line, each resource/channel prefix gets its own stable hashed color, and prefixes align in a fixed-width column. Toggle **Live** off to freeze it.
+- **Audit** — the trail of every agent tool call (timestamp, tool, result code, hashed caller) from `dist/audit.log`, with a tool filter, OK/error filter, sortable columns, and pagination over the last 500 calls.
 
-Hit **Refresh** to pull the latest. This is the human-facing counterpart to the `tail_console` / `scan_errors` tools and the `agent://console` MCP resource.
+This is the human-facing counterpart to the `tail_console` / `scan_errors` tools and the `agent://console` MCP resource.
 
 ## Relationship to `server.cfg`
 

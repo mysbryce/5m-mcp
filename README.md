@@ -270,7 +270,7 @@ http://127.0.0.1:30120/agent_api/dashboard
 - The **Permissions** tab edits the sandbox convars (readonly, write/control roots, rate limit, native blocklists, shell allowlist, plugin gates) **live** — `SetConvar` + a config reload, persisted to `dist/permissions.json`, re-applied at boot. No restart needed.
 - The **Preferences** tab (master only) teaches the agent how you like resources built — `structure` / `coding` / `ui-design` items, each with a description and an optional example folder picked through a sandboxed folder browser. Persisted to `dist/preferences.json`; surfaced via `list_preferences` + auto-injection.
 - The **Skills** tab (master only) uploads custom markdown skills and binds them to MCP actions by tool name and/or category; the skill body is injected into matching tool results. Persisted to `dist/skills.json` + `dist/skills/<id>.md`.
-- The **Logs** tab (master only) shows the live server console and the audit trail of every agent tool call (time / tool / result / caller).
+- The **Monitor** tab (master only, default) shows the realtime server console — FiveM caret colors parsed, a stable per-resource prefix color, txAdmin-style column alignment — and the audit trail of every agent tool call (time / tool / result / caller) with filter, sort, and pagination.
 - Separate from the agent token: dashboard accounts are scrypt-hashed in `dist/users.json`, 12h sessions.
 
 The UI is a Vite + Vue 3 project under `dashboard/`, built to a single committed `dist/dashboard/index.html`. See [`docs/guide/dashboard`](https://mysbryce.github.io/5m-mcp/docs/guide/dashboard).
