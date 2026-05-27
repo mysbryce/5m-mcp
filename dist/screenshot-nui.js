@@ -1,41 +1,9 @@
 #!/usr/bin/env node
 "use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 
 // src/bin/screenshot-nui.ts
 var import_node_fs = require("node:fs");
 var import_node_path = require("node:path");
-async function loadChromium() {
-  try {
-    const pw = await import("playwright");
-    return pw.chromium;
-  } catch {
-    throw new Error(
-      "playwright is not installed. Run `npm install playwright` in the agent_api folder."
-    );
-  }
-}
 function report(payload) {
   process.stdout.write(JSON.stringify(payload) + "\n");
 }
@@ -43,19 +11,136 @@ function isLikelyNui(url) {
   const u = url.toLowerCase();
   if (u.startsWith("devtools://")) return false;
   if (u.startsWith("chrome://")) return false;
+  if (u.startsWith("chrome-untrusted://")) return false;
   if (u === "about:blank") return false;
-  if (u.startsWith("nui://")) return true;
-  if (u.startsWith("https://cfx-nui-")) return true;
-  if (u.startsWith("http://cfx-nui-")) return true;
   return true;
+}
+async function listTargets(cdpUrl) {
+  const r = await fetch(`${cdpUrl.replace(/\/$/, "")}/json`);
+  if (!r.ok) throw new Error(`CDP /json returned ${r.status}`);
+  const arr = await r.json();
+  return arr.filter((p) => p.type === "page" && !!p.webSocketDebuggerUrl);
+}
+var CdpClient = class {
+  ws;
+  nextId = 1;
+  pending = /* @__PURE__ */ new Map();
+  constructor(wsUrl) {
+    const WS = globalThis.WebSocket;
+    if (!WS) throw new Error("WebSocket not available (need Node 22+).");
+    this.ws = new WS(wsUrl);
+    this.ws.addEventListener("message", (ev) => {
+      try {
+        const msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+        if (typeof msg.id !== "number") return;
+        const cb = this.pending.get(msg.id);
+        if (cb) {
+          this.pending.delete(msg.id);
+          cb(msg);
+        }
+      } catch {
+      }
+    });
+  }
+  ready(timeoutMs) {
+    return new Promise((resolve, reject) => {
+      if (this.ws.readyState === 1) {
+        resolve();
+        return;
+      }
+      const t = setTimeout(() => reject(new Error("ws open timeout")), timeoutMs);
+      this.ws.addEventListener("open", () => {
+        clearTimeout(t);
+        resolve();
+      });
+      this.ws.addEventListener("error", (e) => {
+        clearTimeout(t);
+        const msg = e.message ?? "unknown";
+        reject(new Error(`ws error: ${msg}`));
+      });
+    });
+  }
+  send(method, params = {}, timeoutMs = 1e4) {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`CDP ${method} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      this.pending.set(id, (msg) => {
+        clearTimeout(t);
+        if (msg.error) reject(new Error(`${method}: ${msg.error.message}`));
+        else resolve(msg.result);
+      });
+      this.ws.send(JSON.stringify({ id, method, params }));
+    });
+  }
+  close() {
+    try {
+      this.ws.close();
+    } catch {
+    }
+  }
+};
+async function findIframeRect(client, name) {
+  var _a;
+  const expr = `(() => {
+    const sel = ${JSON.stringify(`iframe[name="${name.replaceAll('"', '\\"')}"]`)};
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  })()`;
+  const res = await client.send("Runtime.evaluate", {
+    expression: expr,
+    returnByValue: true
+  });
+  return ((_a = res.result) == null ? void 0 : _a.value) ?? null;
+}
+async function hideSiblingIframes(client, keepName) {
+  var _a;
+  const expr = `(() => {
+    const keep = ${JSON.stringify(keepName)};
+    const hidden = [];
+    for (const f of document.querySelectorAll('iframe')) {
+      if (f.getAttribute('name') === keep) continue;
+      f.dataset.agentApiPrevDisplay = f.style.display || '';
+      f.style.display = 'none';
+      hidden.push(f.getAttribute('name') || '');
+    }
+    return hidden;
+  })()`;
+  const res = await client.send("Runtime.evaluate", {
+    expression: expr,
+    returnByValue: true
+  });
+  return ((_a = res.result) == null ? void 0 : _a.value) ?? [];
+}
+async function restoreSiblingIframes(client) {
+  const expr = `(() => {
+    for (const f of document.querySelectorAll('iframe')) {
+      if (f.dataset.agentApiPrevDisplay !== undefined) {
+        f.style.display = f.dataset.agentApiPrevDisplay;
+        delete f.dataset.agentApiPrevDisplay;
+      }
+    }
+    return true;
+  })()`;
+  await client.send("Runtime.evaluate", { expression: expr, returnByValue: true }).catch(() => {
+  });
 }
 async function main() {
   const outputPath = process.argv[2];
   const cdpUrl = process.argv[3] ?? "http://localhost:13172";
   const timeoutMs = Number(process.argv[4] ?? "15000");
   const targetFilter = (process.argv[5] ?? "").toLowerCase();
+  const iframeName = process.argv[6] ?? "";
+  const mode = (process.argv[7] ?? "isolate").toLowerCase();
   if (!outputPath) {
-    report({ ok: false, error: "usage: screenshot-nui <outputPath> [cdpUrl] [timeoutMs] [targetFilter]" });
+    report({
+      ok: false,
+      error: "usage: screenshot-nui <outputPath> [cdpUrl] [timeoutMs] [targetFilter] [iframeName] [mode=isolate|clip|full]"
+    });
     process.exit(2);
   }
   try {
@@ -64,60 +149,86 @@ async function main() {
     report({ ok: false, error: `mkdir failed: ${e.message}` });
     process.exit(2);
   }
-  let chromium;
+  let targets;
   try {
-    chromium = await loadChromium();
+    targets = await listTargets(cdpUrl);
   } catch (e) {
-    report({ ok: false, error: e.message });
+    report({ ok: false, error: `cannot reach CDP at ${cdpUrl}: ${e.message}` });
     process.exit(3);
   }
-  const overallTimer = setTimeout(() => {
-    report({ ok: false, error: `timed out after ${timeoutMs}ms` });
-    process.exit(6);
-  }, timeoutMs);
-  overallTimer.unref();
-  let browser;
+  if (targets.length === 0) {
+    report({
+      ok: false,
+      error: `no page targets exposed by ${cdpUrl}. Ensure the FiveM client is running.`
+    });
+    process.exit(4);
+  }
+  let chosen;
+  if (targetFilter) chosen = targets.find((p) => p.url.toLowerCase().includes(targetFilter));
+  if (!chosen) chosen = targets.find((p) => isLikelyNui(p.url));
+  if (!chosen) chosen = targets[0];
+  const client = new CdpClient(chosen.webSocketDebuggerUrl);
+  let restoredHidden = [];
   try {
-    browser = await chromium.connectOverCDP(cdpUrl);
-    const allPages = [];
-    for (const ctx of browser.contexts()) {
-      for (const p of ctx.pages()) allPages.push(p);
+    await client.ready(timeoutMs);
+    let clip = null;
+    let iframeReport;
+    if (iframeName) {
+      const rect = await findIframeRect(client, iframeName);
+      iframeReport = { name: iframeName, found: !!rect, rect };
+      if (!rect) {
+        report({
+          ok: false,
+          error: `iframe[name="${iframeName}"] not found in ${chosen.url}. Is the resource's UI open?`,
+          iframe: iframeReport
+        });
+        client.close();
+        process.exit(7);
+      }
+      if (rect.width < 1 || rect.height < 1) {
+        report({
+          ok: false,
+          error: `iframe[name="${iframeName}"] has zero size (${rect.width}x${rect.height}) \u2014 UI is likely hidden.`,
+          iframe: iframeReport
+        });
+        client.close();
+        process.exit(8);
+      }
+      if (mode === "clip") clip = rect;
+      if (mode === "isolate") restoredHidden = await hideSiblingIframes(client, iframeName);
     }
-    if (allPages.length === 0) {
-      report({
-        ok: false,
-        error: `no CEF pages exposed by ${cdpUrl}. Ensure FiveM was started with the CEF DevTools port (default 13172) and that an NUI surface is live.`
-      });
-      process.exit(4);
+    const screenshotParams = {
+      format: "png",
+      fromSurface: true
+    };
+    if (clip) {
+      screenshotParams.clip = { ...clip, scale: 1 };
     }
-    let chosen;
-    if (targetFilter) {
-      chosen = allPages.find((p) => p.url().toLowerCase().includes(targetFilter));
-    }
-    if (!chosen) chosen = allPages.find((p) => isLikelyNui(p.url()));
-    if (!chosen) chosen = allPages[0];
-    const url = chosen.url();
-    const title = await chosen.title().catch(() => "");
-    const buffer = await chosen.screenshot({ fullPage: true, type: "png" });
+    const res = await client.send(
+      "Page.captureScreenshot",
+      screenshotParams,
+      timeoutMs
+    );
+    if (!res.data) throw new Error("CDP response missing result.data");
+    const buffer = Buffer.from(res.data, "base64");
     (0, import_node_fs.writeFileSync)(outputPath, buffer);
     const bytes = (0, import_node_fs.statSync)(outputPath).size ?? buffer.length;
-    clearTimeout(overallTimer);
     report({
       ok: true,
       path: outputPath,
       bytes,
-      target: { url, title },
-      candidates: allPages.map((p) => p.url())
+      mode,
+      target: { url: chosen.url, title: chosen.title, id: chosen.id },
+      candidates: targets.map((p) => ({ url: p.url, title: p.title })),
+      iframe: iframeReport,
+      hiddenSiblings: restoredHidden
     });
   } catch (e) {
-    clearTimeout(overallTimer);
     report({ ok: false, error: e instanceof Error ? e.message : String(e) });
     process.exit(5);
   } finally {
-    try {
-      await (browser == null ? void 0 : browser.close());
-    } catch {
-    }
+    if (restoredHidden.length > 0) await restoreSiblingIframes(client);
+    client.close();
   }
 }
 void main();

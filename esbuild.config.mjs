@@ -36,7 +36,6 @@ const targets = [
     entryPoints: ['src/bin/screenshot-nui.ts'],
     outfile: 'dist/screenshot-nui.js',
     banner: { js: '#!/usr/bin/env node' },
-    external: ['playwright'],
   },
 ];
 

@@ -7637,12 +7637,14 @@ var CaptureInput = external_exports.object({
   outputPath: external_exports.string().optional(),
   cdpUrl: external_exports.string().url().optional(),
   timeoutMs: external_exports.number().int().min(1e3).max(HARD_TIMEOUT).optional(),
-  targetFilter: external_exports.string().optional()
+  targetFilter: external_exports.string().optional(),
+  resource: external_exports.string().optional(),
+  mode: external_exports.enum(["isolate", "clip", "full"]).optional()
 }).strict();
 function registerScreenshotNui() {
   register({
     name: "screenshot_nui",
-    description: "Capture the actual FiveM NUI render by attaching to the CEF DevTools Protocol at http://localhost:13172 \u2014 NOT a screenshot of the DevTools UI. Workflow: 1) ensure the player has opted in and opened the resource UI, 2) call this tool (optional `targetFilter` to pick a specific page by URL substring), 3) Read the returned absolute PNG path (Claude can view PNGs via the Read tool), 4) call delete_screenshot to clean up. Requires the playwright package in agent_api node_modules (no separate browser install \u2014 we connect to the existing CEF).",
+    description: 'Capture the actual FiveM NUI render via CDP at http://localhost:13172 \u2014 NOT the DevTools UI. Pass `resource` to scope the screenshot to one resource. `mode` controls how: "isolate" (default) hides every other resource iframe temporarily for a clean shot then restores them; "clip" leaves siblings visible and just crops the PNG to the iframe rect; "full" captures the whole root overlay (siblings included). Workflow: 1) ensure player opted in and opened the UI, 2) call this tool with `{ resource: "<your_resource>" }`, 3) Read the returned PNG path, 4) delete_screenshot. No browser install needed \u2014 connects to the running CEF over CDP.',
     input: CaptureInput,
     handler: async (input) => {
       const script = screenshotScript();
@@ -7657,9 +7659,18 @@ function registerScreenshotNui() {
       const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT;
       return new Promise((resolveTool) => {
         var _a, _b, _c, _d;
+        const nodeBin = GetConvar("agent_api_node_binary", "node");
         const child = (0, import_node_child_process2.spawn)(
-          process.execPath ?? "node",
-          [script, outputPath, cdpUrl, String(timeoutMs), input.targetFilter ?? ""],
+          nodeBin,
+          [
+            script,
+            outputPath,
+            cdpUrl,
+            String(timeoutMs),
+            input.targetFilter ?? "",
+            input.resource ?? "",
+            input.mode ?? (input.resource ? "isolate" : "full")
+          ],
           {
             cwd: (0, import_node_path6.dirname)(script),
             shell: false,
@@ -7702,7 +7713,12 @@ function registerScreenshotNui() {
             return;
           }
           if (!parsed.ok) {
-            resolveTool(err("INTERNAL", parsed.error ?? "screenshot failed", { stderr }));
+            resolveTool(
+              err("INTERNAL", parsed.error ?? "screenshot failed", {
+                stderr,
+                iframe: parsed.iframe
+              })
+            );
             return;
           }
           const stat = (0, import_node_fs5.existsSync)(parsed.path) ? (0, import_node_fs5.statSync)(parsed.path) : null;
@@ -7712,6 +7728,7 @@ function registerScreenshotNui() {
               bytes: parsed.bytes ?? (stat == null ? void 0 : stat.size) ?? 0,
               target: parsed.target,
               candidates: parsed.candidates,
+              iframe: parsed.iframe,
               hint: "Use the Read tool with `file_path` set to the returned `path` to view the PNG, then call delete_screenshot to clean up."
             })
           );
