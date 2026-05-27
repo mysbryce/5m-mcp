@@ -5,7 +5,7 @@ import { getResourceInfo } from '../runtime/resources';
 const WRITE_EXTENSIONS = new Set(['.lua', '.js', '.ts', '.json', '.cfg', '.md', '.html', '.css']);
 
 function normalizeSlashes(p: string): string {
-  return p.replaceAll('\\', '/');
+  return p.replaceAll('\\', '/').replaceAll(/\/{2,}/g, '/');
 }
 
 function lowerNorm(p: string): string {

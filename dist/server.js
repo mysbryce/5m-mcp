@@ -4377,7 +4377,7 @@ function getResourceInfo(name) {
 // src/server/fs/sandbox.ts
 var WRITE_EXTENSIONS = /* @__PURE__ */ new Set([".lua", ".js", ".ts", ".json", ".cfg", ".md", ".html", ".css"]);
 function normalizeSlashes(p) {
-  return p.replaceAll("\\", "/");
+  return p.replaceAll("\\", "/").replaceAll(/\/{2,}/g, "/");
 }
 function lowerNorm(p) {
   return normalizeSlashes(p).toLowerCase();
