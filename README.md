@@ -112,7 +112,7 @@ set agent_api_plugin_oxlib_blocked_methods ""               # csv
 
 All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, error: { code, message, details? } }`. Codes are stable enum strings (see `src/server/errors/codes.ts`).
 
-The MCP server also exposes **resources** (`resources/list` + `resources/read`): `agent://console`, `agent://resources`, `agent://preferences`, `agent://skills` — read-only JSON snapshots a client can browse without a tool call — plus a **resource template** `agent://file/{resource}/{path}` (`resources/templates/list`) to read any file in a resource. **Prompts** (`prompts/list`): `scaffold-fivem-resource`, `debug-resource`, `add-db-table`.
+The MCP server also exposes **resources** (`resources/list` + `resources/read`): `agent://console`, `agent://resources`, `agent://preferences`, `agent://skills` — read-only JSON snapshots a client can browse without a tool call — plus a **resource template** `agent://file/{resource}/{path}` (`resources/templates/list`) to read any file in a resource. **Prompts** (`prompts/list`): `scaffold-fivem-resource`, `debug-resource`, `add-db-table`, `security-review`.
 
 ### Core (12)
 

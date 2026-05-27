@@ -50,13 +50,17 @@ import { loadPlugins, logPluginStatuses } from './plugins/loader';
 import { registerListPlugins, setPluginSnapshot } from './tools/plugins';
 import { registerPrompt } from './mcp/prompts';
 import { scaffoldFivemPrompt } from './mcp/prompts/scaffoldFivem';
-import { addDbTablePrompt, debugResourcePrompt } from './mcp/prompts/workflows';
+import {
+  addDbTablePrompt,
+  debugResourcePrompt,
+  securityReviewPrompt,
+} from './mcp/prompts/workflows';
 import { registerScaffoldFivemWorkflow } from './tools/scaffoldWorkflow';
 import { registerListPreferences } from './tools/preferences';
 import { registerListSkills } from './tools/skills';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.6.1';
+const VERSION = '0.6.2';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -112,6 +116,7 @@ function main(): void {
   registerPrompt(scaffoldFivemPrompt);
   registerPrompt(debugResourcePrompt);
   registerPrompt(addDbTablePrompt);
+  registerPrompt(securityReviewPrompt);
   registerScaffoldFivemWorkflow();
   registerListPreferences();
   registerListSkills();

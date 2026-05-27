@@ -2,7 +2,7 @@ import { installClientProbes } from './events';
 import { installClientNativeBridge } from './native';
 
 const RESOURCE_NAME = GetCurrentResourceName();
-const VERSION = '0.6.1';
+const VERSION = '0.6.2';
 
 installClientProbes();
 installClientNativeBridge();

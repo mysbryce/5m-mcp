@@ -1,6 +1,6 @@
 {
   "name": "5m-mcp",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "FiveM resource exposing safe local MCP tools for agentic resource development.",
   "license": "SEE LICENSE IN ./LICENSE",

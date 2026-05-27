@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2] — 2026-05-28
+
+### Added
+
+- **`security-review` MCP prompt** — a FiveM cheat-prevention audit workflow.
+  Reads the whole codebase first, then interrogates each client→server trust
+  decision one question at a time with two choices (Answer / Skip): a **skipped**
+  point is recorded as MUST-IMPROVE (no justification = treated as unprotected),
+  an **answered** one is verified against the actual server-side guard in the
+  code. Targets forged net events, client-authoritative state, NUI-callback
+  trust, `load`/`ExecuteCommand`, SQL injection, over-broad exports, and leaked
+  secrets; ends with a severity-ranked fix list.
+
 ## [0.6.1] — 2026-05-28
 
 ### Fixed
