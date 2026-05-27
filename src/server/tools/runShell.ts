@@ -85,11 +85,25 @@ export function registerRunShell(): void {
       const timeoutMs = input.timeoutMs ?? 30_000;
       const args = input.args ?? [];
 
+      // On Windows the allowlisted tools (npm/npx/pnpm/yarn/vite) are .cmd shims
+      // that Node refuses to spawn without a shell. Enable shell there, but reject
+      // shell metacharacters in args so the shell can't be used for injection.
+      const useShell = process.platform === 'win32';
+      if (useShell) {
+        const bad = args.find((a) => /[&|<>^\r\n]/.test(a));
+        if (bad !== undefined) {
+          return err(
+            'COMMAND_NOT_ALLOWED',
+            `Argument contains a shell metacharacter (refused on Windows): ${bad}`,
+          );
+        }
+      }
+
       return new Promise<Envelope<unknown>>((resolveTool) => {
         const child = spawn(input.command, args, {
           cwd: cwd.path,
           env: { ...process.env, ...input.env },
-          shell: false,
+          shell: useShell,
           windowsHide: true,
         });
 

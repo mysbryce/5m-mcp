@@ -56,7 +56,7 @@ import { registerListPreferences } from './tools/preferences';
 import { registerListSkills } from './tools/skills';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.6.0';
+const VERSION = '0.6.1';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {

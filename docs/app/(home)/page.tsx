@@ -54,7 +54,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center px-6 py-24 text-center sm:py-32">
           <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/60 px-3 py-1 text-xs font-medium text-fd-muted-foreground backdrop-blur">
             <span className="size-1.5 rounded-full bg-[oklch(0.6049_0.1419_276.7)]" />
-            v0.6.0 · Model Context Protocol for FiveM
+            v0.6.1 · Model Context Protocol for FiveM
           </span>
           <h1 className="text-gradient text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl">
             Let any MCP agent <br className="hidden sm:block" /> build, run, and debug

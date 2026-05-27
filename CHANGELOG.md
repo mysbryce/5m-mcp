@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] — 2026-05-28
+
+### Fixed
+
+- **`run_shell` on Windows** — npm/npx/pnpm/yarn/vite are `.cmd` shims that Node
+  refuses to spawn without a shell, so `run_shell npm install` failed with
+  `spawn ENOENT`. It now uses `shell: true` on win32 and rejects shell
+  metacharacters (`& | < > ^`, newlines) in args to keep the shell from being
+  usable for injection. (Surfaced by an end-to-end mechanical-loop test that built
+  a full Lua + SolidJS/Vite resource through the MCP tools.)
+- Removed stray `dist/_*.txt` scratch files that had been committed accidentally,
+  and added `dist/_*` to `.gitignore`.
+
 ## [0.6.0] — 2026-05-28
 
 ### Added

@@ -14,7 +14,7 @@ function mimeForPath(path: string): string {
 }
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.6.0' };
+const SERVER_INFO = { name: 'agent_api', version: '0.6.1' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 
