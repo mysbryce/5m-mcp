@@ -70,6 +70,15 @@ Upload your own **custom skill** (write markdown inline or upload a `.md` file) 
 
 Skills are file-backed: metadata in `dist/skills.json`, each body in `dist/skills/<id>.md`. The MCP tool **`list_skills`** returns them for inspection, but you rarely need it — binding + auto-injection is the intended path.
 
+## Logs tab (master only)
+
+Two read-only views into what the agent has been doing, served from the same handler:
+
+- **Console** — the most recent lines from the in-memory console ring buffer (the same buffer `tail_console` reads), so you can watch resource output and errors live.
+- **Audit** — the audit trail of every agent tool call: timestamp, tool name, result code, and the (hashed) caller token. Backed by `dist/audit.log`.
+
+Hit **Refresh** to pull the latest. This is the human-facing counterpart to the `tail_console` / `scan_errors` tools and the `agent://console` MCP resource.
+
 ## Relationship to `server.cfg`
 
 Convars set in `server.cfg` are the boot defaults. The dashboard layers `dist/permissions.json` on top of them at startup. If you set the same convar in both, the dashboard override wins (it's applied after the cfg is read, and again on every save). To reset to your `server.cfg` baseline, delete `dist/permissions.json` and restart.

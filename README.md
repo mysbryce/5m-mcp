@@ -112,7 +112,7 @@ set agent_api_plugin_oxlib_blocked_methods ""               # csv
 
 All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, error: { code, message, details? } }`. Codes are stable enum strings (see `src/server/errors/codes.ts`).
 
-The MCP server also exposes **resources** (`resources/list` + `resources/read`): `agent://console`, `agent://resources`, `agent://preferences`, `agent://skills` — read-only JSON snapshots a client can browse without a tool call.
+The MCP server also exposes **resources** (`resources/list` + `resources/read`): `agent://console`, `agent://resources`, `agent://preferences`, `agent://skills` — read-only JSON snapshots a client can browse without a tool call — plus a **resource template** `agent://file/{resource}/{path}` (`resources/templates/list`) to read any file in a resource. **Prompts** (`prompts/list`): `scaffold-fivem-resource`, `debug-resource`, `add-db-table`.
 
 ### Core (12)
 
@@ -231,7 +231,7 @@ client_call_native { serverId: 1, native: "GetEntityCoords", args: ["$ped", true
 | --------- | -------------------------------------------------------------------------------------------------- |
 | **esx**   | `esx_list_players`, `esx_get_player`, `esx_add_money`, `esx_set_job`, `esx_list_shared_methods`, `esx_list_player_methods`, `esx_call_shared`, `esx_call_player` |
 | **oxlib** | `oxlib_notify`, `oxlib_trigger_client_callback`, `oxlib_check_dependency`, `oxlib_list_methods`, `oxlib_call` |
-| **oxmysql** | `oxmysql_query`, `oxmysql_scalar`, `oxmysql_execute` (readonly + allow-statements gates), `oxmysql_schema` (read-only information_schema introspection) |
+| **oxmysql** | `oxmysql_query`, `oxmysql_scalar`, `oxmysql_execute` (readonly + allow-statements gates), `oxmysql_schema` (read-only information_schema introspection), `oxmysql_migrate` (DDL + verify) |
 
 #### Adding a plugin
 
@@ -270,6 +270,7 @@ http://127.0.0.1:30120/agent_api/dashboard
 - The **Permissions** tab edits the sandbox convars (readonly, write/control roots, rate limit, native blocklists, shell allowlist, plugin gates) **live** — `SetConvar` + a config reload, persisted to `dist/permissions.json`, re-applied at boot. No restart needed.
 - The **Preferences** tab (master only) teaches the agent how you like resources built — `structure` / `coding` / `ui-design` items, each with a description and an optional example folder picked through a sandboxed folder browser. Persisted to `dist/preferences.json`; surfaced via `list_preferences` + auto-injection.
 - The **Skills** tab (master only) uploads custom markdown skills and binds them to MCP actions by tool name and/or category; the skill body is injected into matching tool results. Persisted to `dist/skills.json` + `dist/skills/<id>.md`.
+- The **Logs** tab (master only) shows the live server console and the audit trail of every agent tool call (time / tool / result / caller).
 - Separate from the agent token: dashboard accounts are scrypt-hashed in `dist/users.json`, 12h sessions.
 
 The UI is a Vite + Vue 3 project under `dashboard/`, built to a single committed `dist/dashboard/index.html`. See [`docs/guide/dashboard`](https://mysbryce.github.io/5m-mcp/docs/guide/dashboard).

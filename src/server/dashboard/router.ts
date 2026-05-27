@@ -16,6 +16,8 @@ import { PERMISSIONS, applyUpdates, currentValues } from './permissions';
 import { deletePreference, listPreferences, upsertPreference } from './preferences';
 import { availableTriggers, deleteSkill, listSkills, upsertSkill } from './skills';
 import { listResourcesForBrowse, listSubdirs } from './fsbrowse';
+import { readRecentAudit } from '../audit/log';
+import { RingBuffer } from '../console/buffer';
 
 type Reply = {
   status: number;
@@ -38,7 +40,7 @@ function meFromHeaders(headers: Record<string, string>) {
   return user ? { user, token } : null;
 }
 
-export type DashboardDeps = { reloadConvars: () => void };
+export type DashboardDeps = { reloadConvars: () => void; console: RingBuffer };
 
 /**
  * Handle a /dashboard request. `path` is everything after the resource name,
@@ -146,13 +148,22 @@ export async function handleDashboard(
     }
   }
 
-  // --- master only: preferences / skills / folder browse ---
+  // --- master only: preferences / skills / folder browse / logs ---
   if (
     sub.startsWith('/api/preferences') ||
     sub.startsWith('/api/skills') ||
-    sub.startsWith('/api/fs')
+    sub.startsWith('/api/fs') ||
+    sub.startsWith('/api/console') ||
+    sub.startsWith('/api/audit')
   ) {
     if (user.role !== 'master') return json(403, { error: 'Master only.' });
+
+    if (sub === '/api/console' && method === 'GET') {
+      return json(200, { lines: deps.console.tail({ lines: 300 }) });
+    }
+    if (sub === '/api/audit' && method === 'GET') {
+      return json(200, { entries: readRecentAudit(150) });
+    }
 
     if (sub === '/api/preferences' && method === 'GET') {
       return json(200, { preferences: listPreferences() });

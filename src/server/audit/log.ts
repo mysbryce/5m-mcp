@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
@@ -32,4 +32,26 @@ export function audit(entry: Omit<AuditEntry, 'ts'>): void {
   } catch (e) {
     console.error(`[${GetCurrentResourceName()}] audit write failed:`, e);
   }
+}
+
+/** Most-recent audit entries (newest last), parsed from the log file. */
+export function readRecentAudit(limit: number): AuditEntry[] {
+  const p = path();
+  if (!existsSync(p)) return [];
+  let text: string;
+  try {
+    text = readFileSync(p, 'utf8');
+  } catch {
+    return [];
+  }
+  const lines = text.split('\n').filter(Boolean).slice(-limit);
+  const out: AuditEntry[] = [];
+  for (const line of lines) {
+    try {
+      out.push(JSON.parse(line) as AuditEntry);
+    } catch {
+      // skip malformed line
+    }
+  }
+  return out;
 }

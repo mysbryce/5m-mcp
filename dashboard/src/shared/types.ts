@@ -57,3 +57,17 @@ export interface BrowseResource {
   name: string;
   state: string;
 }
+
+export interface ConsoleLine {
+  ts: number;
+  channel: string;
+  message: string;
+}
+
+export interface AuditEntry {
+  ts: string;
+  tool: string;
+  params: unknown;
+  result_code: string;
+  caller: string;
+}

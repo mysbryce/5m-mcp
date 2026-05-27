@@ -4,9 +4,17 @@ import { ToolContext } from '../tools/context';
 import { getPrompt, listPrompts } from './prompts';
 import { listResources, readResource } from './resources';
 import { injectedTexts } from '../dashboard/inject';
+import { readFile } from '../fs/read';
+
+function mimeForPath(path: string): string {
+  if (path.endsWith('.json')) return 'application/json';
+  if (path.endsWith('.html') || path.endsWith('.htm')) return 'text/html';
+  if (path.endsWith('.css')) return 'text/css';
+  return 'text/plain';
+}
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.5.0' };
+const SERVER_INFO = { name: 'agent_api', version: '0.6.0' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 
@@ -74,12 +82,41 @@ export async function handleMcpRequest(
     case 'resources/list':
       return rpcSuccess(id, { resources: listResources() });
 
+    case 'resources/templates/list':
+      return rpcSuccess(id, {
+        resourceTemplates: [
+          {
+            uriTemplate: 'agent://file/{resource}/{path}',
+            name: 'Resource file',
+            description:
+              'Read any file in a resource (read sandbox), e.g. agent://file/agent_api/src/server/index.ts',
+            mimeType: 'text/plain',
+          },
+        ],
+      });
+
     case 'resources/read': {
       const params = req.params as { uri?: unknown } | undefined;
       const uri = params && typeof params.uri === 'string' ? params.uri : null;
       if (!uri) {
         return rpcError(id, RpcErrorCode.INVALID_PARAMS, 'Missing resource uri.');
       }
+
+      // Templated file resource: agent://file/<resource>/<relative-path>
+      const fileMatch = uri.match(/^agent:\/\/file\/([^/]+)\/(.+)$/);
+      if (fileMatch) {
+        const result = await readFile(
+          { resource: fileMatch[1]!, path: fileMatch[2]! },
+          ctx.convars.maxFileBytes,
+        );
+        if (!result.ok) {
+          return rpcError(id, RpcErrorCode.INVALID_PARAMS, result.error.message);
+        }
+        return rpcSuccess(id, {
+          contents: [{ uri, mimeType: mimeForPath(fileMatch[2]!), text: result.data.content }],
+        });
+      }
+
       const resource = await readResource(uri);
       if (!resource) {
         return rpcError(id, RpcErrorCode.INVALID_PARAMS, `Unknown resource: ${uri}`);

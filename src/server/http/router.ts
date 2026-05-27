@@ -86,6 +86,7 @@ export function installHttpRouter(deps: RouterDeps): void {
         const body = await readBody(req);
         const dash = await handleDashboard(req.method, path, headers, body, {
           reloadConvars: deps.reloadConvars,
+          console: deps.ctx.console,
         });
         res.writeHead(dash.status, dash.headers);
         res.send(dash.body);

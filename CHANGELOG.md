@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] — 2026-05-28
+
+### Added
+
+- **Dashboard "Logs" tab** (master only) — live server console (ring buffer) and
+  the audit trail of every agent tool call (time / tool / result / caller hash),
+  backed by new `/api/console` + `/api/audit` endpoints and `readRecentAudit()`.
+- **Workflow MCP prompts**: `debug-resource` (state → restart → wait_for_console
+  → scan_errors → read → fix → verify loop) and `add-db-table` (schema → confirm
+  → oxmysql_migrate → verify → parameterised code).
+- **MCP resource template** `agent://file/{resource}/{path}` (via
+  `resources/templates/list`) — read any file in a resource through the MCP
+  resources interface, not just the four fixed snapshots.
+- **`oxmysql_migrate`** — run a DDL statement (gated like `oxmysql_execute`) and
+  optionally return the resulting table schema to confirm the migration.
+
 ## [0.5.0] — 2026-05-28
 
 ### Added

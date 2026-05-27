@@ -150,5 +150,44 @@ export const oxMysqlPlugin: Plugin = {
         }
       },
     });
+
+    register({
+      name: 'oxmysql_migrate',
+      description:
+        'Run a DDL statement (CREATE TABLE / ALTER TABLE / DROP / …) and optionally verify the ' +
+        'resulting columns. Gated exactly like oxmysql_execute (needs ' +
+        'agent_api_plugin_oxmysql_readonly=false AND the verb in ' +
+        'agent_api_plugin_oxmysql_allow_statements). Pass verifyTable to get its schema back after.',
+      input: z
+        .object({ statement: z.string().min(1).max(20_000), verifyTable: z.string().optional() })
+        .strict(),
+      handler: async (input: { statement: string; verifyTable?: string }) => {
+        const guard = guardQuery(input.statement);
+        if (!guard.ok) return err('COMMAND_NOT_ALLOWED', guard.reason);
+        try {
+          const result = await oxmysql.rawExecute(input.statement, []);
+          let schema: unknown = null;
+          if (input.verifyTable) {
+            const rows = (await oxmysql.query(
+              `SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_KEY, IS_NULLABLE, COLUMN_DEFAULT
+               FROM information_schema.COLUMNS
+               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+               ORDER BY ORDINAL_POSITION`,
+              [input.verifyTable],
+            )) as Array<Record<string, unknown>>;
+            schema = rows.map((r) => ({
+              column: r.COLUMN_NAME,
+              type: r.COLUMN_TYPE,
+              key: r.COLUMN_KEY || null,
+              nullable: r.IS_NULLABLE === 'YES',
+              default: r.COLUMN_DEFAULT ?? null,
+            }));
+          }
+          return ok({ result, table: input.verifyTable ?? null, schema });
+        } catch (e) {
+          return err('INTERNAL', e instanceof Error ? e.message : String(e));
+        }
+      },
+    });
   },
 };

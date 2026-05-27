@@ -126,6 +126,7 @@ Detects `oxmysql`. Uses `@overextended/oxmysql` for typed access. Defaults to `S
 | `oxmysql_scalar` | `oxmysql.scalar` returning the first column of the first row |
 | `oxmysql_execute` | `oxmysql.rawExecute` for INSERT/UPDATE/DELETE/DDL when allowed |
 | `oxmysql_schema` | Read-only `information_schema` introspection: tables → columns (name, type, key, nullable, default). Scope with `table` |
+| `oxmysql_migrate` | Run a DDL statement (gated like `oxmysql_execute`) and optionally return the resulting table schema via `verifyTable` |
 
 ## Workflow / meta
 
