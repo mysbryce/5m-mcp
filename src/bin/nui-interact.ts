@@ -115,6 +115,47 @@ class CdpClient {
   }
 }
 
+type FrameInfo = { id: string; url: string; name?: string | undefined };
+interface FrameNode {
+  frame: { id: string; url: string; name?: string | undefined };
+  childFrames?: FrameNode[];
+}
+
+function flattenFrames(node: FrameNode): FrameInfo[] {
+  const out: FrameInfo[] = [{ id: node.frame.id, url: node.frame.url, name: node.frame.name }];
+  for (const c of node.childFrames ?? []) out.push(...flattenFrames(c));
+  return out;
+}
+
+/**
+ * Given a resource/url filter, find the matching child frame inside the page and
+ * create an isolated world in it so we can evaluate against that (cross-origin)
+ * iframe's DOM. Returns null when no filter or no matching frame.
+ */
+async function resolveFrame(
+  client: CdpClient,
+  filter: string,
+): Promise<{ contextId: number; info: FrameInfo } | null> {
+  if (!filter) return null;
+  try {
+    await client.send('Page.enable');
+    const tree = await client.send<{ frameTree: FrameNode }>('Page.getFrameTree');
+    const frames = flattenFrames(tree.frameTree);
+    const match = frames.find(
+      (f) => (f.name && f.name.toLowerCase() === filter) || f.url.toLowerCase().includes(filter),
+    );
+    if (!match) return null;
+    const world = await client.send<{ executionContextId: number }>('Page.createIsolatedWorld', {
+      frameId: match.id,
+      worldName: 'agent_api_nui',
+      grantUniveralAccess: true,
+    });
+    return { contextId: world.executionContextId, info: match };
+  } catch {
+    return null;
+  }
+}
+
 function buildExpression(action: string, p: Payload): string {
   const sel = JSON.stringify(p.selector ?? '');
   const val = JSON.stringify(p.value ?? '');
@@ -198,11 +239,23 @@ async function main(): Promise<void> {
   const client = new CdpClient(chosen!.webSocketDebuggerUrl);
   try {
     await client.ready(timeoutMs);
+
+    // If a resource/url filter was given, drill into that iframe's own context so
+    // selectors resolve against the resource's DOM (not the cross-origin root).
+    const frame = await resolveFrame(client, targetFilter);
+
     const expression = buildExpression(action, payload);
+    const evalParams: Record<string, unknown> = {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    };
+    if (frame) evalParams.contextId = frame.contextId;
+
     const res = await client.send<{
       result?: { value?: unknown };
       exceptionDetails?: { exception?: { description?: string }; text?: string };
-    }>('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, timeoutMs);
+    }>('Runtime.evaluate', evalParams, timeoutMs);
 
     if (res.exceptionDetails) {
       const msg =
@@ -217,6 +270,8 @@ async function main(): Promise<void> {
       action,
       result: res.result?.value,
       target: { url: chosen!.url, title: chosen!.title, id: chosen!.id },
+      frame: frame ? frame.info : null,
+      frameMatched: targetFilter ? Boolean(frame) : undefined,
       candidates: targets.map((p) => ({ url: p.url, title: p.title, type: p.type })),
     });
   } catch (e) {

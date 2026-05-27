@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] — 2026-05-28
+
+### Changed
+
+- **NUI interaction now reaches inside a resource's iframe.** FiveM's CEF exposes
+  a single CDP target (`nui://game/ui/root.html`) with every resource's NUI as a
+  cross-origin child iframe. `nui_*` now resolves the target frame via
+  `Page.getFrameTree` and evaluates in an isolated world (`Page.createIsolatedWorld`),
+  so `nui_click`/`nui_fill`/`nui_get`/`nui_eval` with a `resource` hit that
+  resource's own DOM instead of the root document. Falls back to the root frame
+  when no `resource` is given or no frame matches (`frameMatched:false`).
+
 ## [0.4.0] — 2026-05-28
 
 ### Added

@@ -71,7 +71,7 @@ Run any FiveM native by name. Read-only verbs always pass; mutators need `readon
 
 ## NUI interaction
 
-Drive the live NUI over the same CDP connection (no Playwright). Pass `resource` to target that resource's iframe; the NUI must be open.
+Drive the live NUI over the same CDP connection (no Playwright). Pass `resource` to target that resource's iframe — the tool resolves that frame and evaluates inside an isolated world, so selectors hit the resource's own DOM even though it's a cross-origin iframe of the CEF root page. The NUI must be open.
 
 | Tool | Purpose |
 | --- | --- |
