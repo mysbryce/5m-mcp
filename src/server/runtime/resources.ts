@@ -21,6 +21,6 @@ export function listResources(): ResourceInfo[] {
 
 export function getResourceInfo(name: string): ResourceInfo | null {
   const state = GetResourceState(name);
-  if (!state || state === "missing") return null;
+  if (!state || state === 'missing') return null;
   return { name, state, path: GetResourcePath(name) };
 }

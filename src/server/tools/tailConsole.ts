@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { ok } from "../util/envelope";
-import { register } from "./registry";
-import { ToolContext } from "./context";
+import { z } from 'zod';
+import { ok } from '../util/envelope';
+import { register } from './registry';
+import { ToolContext } from './context';
 
 const Input = z
   .object({
@@ -15,9 +15,9 @@ type Input = z.infer<typeof Input>;
 
 export function registerTailConsole(): void {
   register({
-    name: "tail_console",
+    name: 'tail_console',
     description:
-      "Return recent lines from the in-memory console ring buffer. Filter by since timestamp (ms epoch) or channel.",
+      'Return recent lines from the in-memory console ring buffer. Filter by since timestamp (ms epoch) or channel.',
     input: Input,
     handler: async (input: Input, ctx: ToolContext) => {
       const opts: { lines?: number; sinceTs?: number; channel?: string } = {};

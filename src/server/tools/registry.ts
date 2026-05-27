@@ -1,6 +1,6 @@
-import { z, ZodTypeAny } from "zod";
-import { Envelope, err } from "../util/envelope";
-import { ToolContext } from "./context";
+import { z, ZodTypeAny } from 'zod';
+import { Envelope, err } from '../util/envelope';
+import { ToolContext } from './context';
 
 export type Tool<TInput = unknown, TOutput = unknown> = {
   name: string;
@@ -30,11 +30,11 @@ export async function dispatch(
 ): Promise<Envelope<unknown>> {
   const tool = tools.get(name);
   if (!tool) {
-    return err("TOOL_NOT_FOUND", `Unknown tool: ${name}`);
+    return err('TOOL_NOT_FOUND', `Unknown tool: ${name}`);
   }
   const parsed = tool.input.safeParse(rawInput ?? {});
   if (!parsed.success) {
-    return err("INVALID_INPUT", "Input validation failed.", {
+    return err('INVALID_INPUT', 'Input validation failed.', {
       issues: parsed.error.issues,
     });
   }
@@ -42,7 +42,7 @@ export async function dispatch(
     return await tool.handler(parsed.data, ctx);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    return err("INTERNAL", message);
+    return err('INTERNAL', message);
   }
 }
 

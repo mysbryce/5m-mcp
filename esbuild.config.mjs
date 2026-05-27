@@ -1,15 +1,15 @@
-import { build, context } from "esbuild";
+import { build, context } from 'esbuild';
 
-const watch = process.argv.includes("--watch");
+const watch = process.argv.includes('--watch');
 
 /** @type {import("esbuild").BuildOptions} */
 const common = {
   bundle: true,
-  format: "cjs",
-  target: "node16",
-  platform: "node",
-  logLevel: "info",
-  legalComments: "none",
+  format: 'cjs',
+  target: 'node16',
+  platform: 'node',
+  logLevel: 'info',
+  legalComments: 'none',
   sourcemap: false,
   minify: false,
 };
@@ -17,19 +17,19 @@ const common = {
 const targets = [
   {
     ...common,
-    entryPoints: ["src/server/index.ts"],
-    outfile: "dist/server.js",
+    entryPoints: ['src/server/index.ts'],
+    outfile: 'dist/server.js',
   },
   {
     ...common,
-    entryPoints: ["src/client/index.ts"],
-    outfile: "dist/client.js",
+    entryPoints: ['src/client/index.ts'],
+    outfile: 'dist/client.js',
   },
   {
     ...common,
-    entryPoints: ["src/bin/mcp-stdio.ts"],
-    outfile: "dist/mcp-stdio.js",
-    banner: { js: "#!/usr/bin/env node" },
+    entryPoints: ['src/bin/mcp-stdio.ts'],
+    outfile: 'dist/mcp-stdio.js',
+    banner: { js: '#!/usr/bin/env node' },
   },
 ];
 
@@ -37,10 +37,10 @@ async function run() {
   if (watch) {
     const ctxs = await Promise.all(targets.map((t) => context(t)));
     await Promise.all(ctxs.map((c) => c.watch()));
-    console.log("[esbuild] watching...");
+    console.log('[esbuild] watching...');
   } else {
     await Promise.all(targets.map((t) => build(t)));
-    console.log("[esbuild] build complete");
+    console.log('[esbuild] build complete');
   }
 }
 

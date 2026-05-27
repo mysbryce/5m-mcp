@@ -1,9 +1,9 @@
-import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { join } from 'node:path';
 
-const TOKEN_FILE = "dist/.agent_token";
-const PLACEHOLDER = "change-me";
+const TOKEN_FILE = 'dist/.agent_token';
+const PLACEHOLDER = 'change-me';
 
 export type TokenInfo = {
   token: string;
@@ -19,12 +19,12 @@ export function resolveToken(rawConvar: string): TokenInfo {
   }
 
   if (existsSync(tokenPath)) {
-    const persisted = readFileSync(tokenPath, "utf8").trim();
+    const persisted = readFileSync(tokenPath, 'utf8').trim();
     if (persisted) return { token: persisted, generated: false };
   }
 
-  const fresh = randomBytes(32).toString("hex");
-  writeFileSync(tokenPath, fresh + "\n", "utf8");
+  const fresh = randomBytes(32).toString('hex');
+  writeFileSync(tokenPath, fresh + '\n', 'utf8');
   try {
     chmodSync(tokenPath, 0o600);
   } catch {

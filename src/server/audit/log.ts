@@ -1,8 +1,8 @@
-import { appendFileSync, mkdirSync } from "node:fs";
-import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
-const AUDIT_FILE = "dist/audit.log";
+const AUDIT_FILE = 'dist/audit.log';
 let resolvedPath: string | null = null;
 
 function path(): string {
@@ -14,7 +14,7 @@ function path(): string {
 }
 
 export function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex").slice(0, 12);
+  return createHash('sha256').update(token).digest('hex').slice(0, 12);
 }
 
 export type AuditEntry = {
@@ -25,10 +25,10 @@ export type AuditEntry = {
   caller: string;
 };
 
-export function audit(entry: Omit<AuditEntry, "ts">): void {
-  const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n";
+export function audit(entry: Omit<AuditEntry, 'ts'>): void {
+  const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n';
   try {
-    appendFileSync(path(), line, "utf8");
+    appendFileSync(path(), line, 'utf8');
   } catch (e) {
     console.error(`[${GetCurrentResourceName()}] audit write failed:`, e);
   }

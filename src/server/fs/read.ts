@@ -1,7 +1,7 @@
-import { promises as fs } from "node:fs";
-import { z } from "zod";
-import { Envelope, err, ok } from "../util/envelope";
-import { checkReadExtension, resolveResourcePath } from "./sandbox";
+import { promises as fs } from 'node:fs';
+import { z } from 'zod';
+import { Envelope, err, ok } from '../util/envelope';
+import { checkReadExtension, resolveResourcePath } from './sandbox';
 
 export const ReadFileInput = z.object({
   resource: z.string().min(1),
@@ -33,31 +33,32 @@ export async function readFile(
   try {
     stat = await fs.stat(resolved.data.absPath);
   } catch {
-    return err("NOT_FOUND", "File not found.", {
+    return err('NOT_FOUND', 'File not found.', {
       resource: input.resource,
       path: input.path,
     });
   }
   if (!stat.isFile()) {
-    return err("NOT_FOUND", "Path is not a regular file.");
+    return err('NOT_FOUND', 'Path is not a regular file.');
   }
 
   const offset = input.offset ?? 0;
   const requested = input.length;
   const remaining = Math.max(0, stat.size - offset);
-  const length = requested === undefined
-    ? Math.min(remaining, maxBytes)
-    : Math.min(requested, remaining, maxBytes);
+  const length =
+    requested === undefined
+      ? Math.min(remaining, maxBytes)
+      : Math.min(requested, remaining, maxBytes);
 
   if (requested === undefined && remaining > maxBytes) {
     return err(
-      "FILE_TOO_LARGE",
+      'FILE_TOO_LARGE',
       `File exceeds ${maxBytes} bytes. Use offset/length to read a window.`,
       { size: stat.size, limit: maxBytes },
     );
   }
 
-  const handle = await fs.open(resolved.data.absPath, "r");
+  const handle = await fs.open(resolved.data.absPath, 'r');
   try {
     const buf = Buffer.alloc(length);
     if (length > 0) {
@@ -68,7 +69,7 @@ export async function readFile(
       path: input.path,
       size: stat.size,
       truncated: offset + length < stat.size,
-      content: buf.toString("utf8"),
+      content: buf.toString('utf8'),
     });
   } finally {
     await handle.close();

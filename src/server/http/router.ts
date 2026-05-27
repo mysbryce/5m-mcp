@@ -1,8 +1,8 @@
-import { Envelope, err, ok } from "../util/envelope";
-import { HTTP_STATUS } from "../errors/codes";
-import { dispatch, listTools } from "../tools/registry";
-import { ToolContext } from "../tools/context";
-import { audit, hashToken } from "../audit/log";
+import { Envelope, err, ok } from '../util/envelope';
+import { HTTP_STATUS } from '../errors/codes';
+import { dispatch, listTools } from '../tools/registry';
+import { ToolContext } from '../tools/context';
+import { audit, hashToken } from '../audit/log';
 
 type FivemReq = {
   address: string;
@@ -19,20 +19,20 @@ type FivemRes = {
 
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
 const JSON_HEADERS = {
-  "Content-Type": "application/json",
-  "Cache-Control": "no-store",
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
 };
 
 function readBody(req: FivemReq): Promise<string> {
   return new Promise((resolve) => {
-    if (req.method === "GET" || req.method === "HEAD") {
-      resolve("");
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      resolve('');
       return;
     }
     try {
-      req.setDataHandler((data) => resolve(data ?? ""));
+      req.setDataHandler((data) => resolve(data ?? ''));
     } catch {
-      resolve("");
+      resolve('');
     }
   });
 }
@@ -62,17 +62,17 @@ export function installHttpRouter(deps: RouterDeps): void {
   SetHttpHandler(async (req: FivemReq, res: FivemRes) => {
     try {
       const headers = lowercaseHeaders(req.headers);
-      const path = (req.path ?? "/").split("?")[0] ?? "/";
+      const path = (req.path ?? '/').split('?')[0] ?? '/';
 
-      if (req.method === "GET" && path === "/health") {
-        reply(res, 200, ok({ status: "up", resource: GetCurrentResourceName() }));
+      if (req.method === 'GET' && path === '/health') {
+        reply(res, 200, ok({ status: 'up', resource: GetCurrentResourceName() }));
         return;
       }
 
-      if (req.method === "GET" && path === "/tools") {
-        const supplied = headers["x-agent-token"];
+      if (req.method === 'GET' && path === '/tools') {
+        const supplied = headers['x-agent-token'];
         if (supplied !== deps.token) {
-          reply(res, 401, err("UNAUTHORIZED", "Invalid or missing token."));
+          reply(res, 401, err('UNAUTHORIZED', 'Invalid or missing token.'));
           return;
         }
         reply(
@@ -89,24 +89,20 @@ export function installHttpRouter(deps: RouterDeps): void {
       }
 
       const toolMatch = path.match(/^\/tools\/([a-z_][a-z0-9_]*)$/i);
-      if (!toolMatch || req.method !== "POST") {
-        reply(res, 404, err("NOT_FOUND", `No route for ${req.method} ${path}`));
+      if (!toolMatch || req.method !== 'POST') {
+        reply(res, 404, err('NOT_FOUND', `No route for ${req.method} ${path}`));
         return;
       }
 
-      const supplied = headers["x-agent-token"];
+      const supplied = headers['x-agent-token'];
       if (supplied !== deps.token) {
-        reply(res, 401, err("UNAUTHORIZED", "Invalid or missing token."));
+        reply(res, 401, err('UNAUTHORIZED', 'Invalid or missing token.'));
         return;
       }
 
       const body = await readBody(req);
       if (body.length > MAX_BODY_BYTES) {
-        reply(
-          res,
-          413,
-          err("BODY_TOO_LARGE", `Body exceeds ${MAX_BODY_BYTES} bytes.`),
-        );
+        reply(res, 413, err('BODY_TOO_LARGE', `Body exceeds ${MAX_BODY_BYTES} bytes.`));
         return;
       }
 
@@ -115,7 +111,7 @@ export function installHttpRouter(deps: RouterDeps): void {
         try {
           parsedBody = JSON.parse(body);
         } catch {
-          reply(res, 400, err("INVALID_INPUT", "Body is not valid JSON."));
+          reply(res, 400, err('INVALID_INPUT', 'Body is not valid JSON.'));
           return;
         }
       }
@@ -125,14 +121,14 @@ export function installHttpRouter(deps: RouterDeps): void {
       audit({
         tool: toolName,
         params: parsedBody,
-        result_code: envelope.ok ? "OK" : envelope.error.code,
-        caller: hashToken(supplied ?? ""),
+        result_code: envelope.ok ? 'OK' : envelope.error.code,
+        caller: hashToken(supplied ?? ''),
       });
       reply(res, statusFor(envelope), envelope);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.error(`[${GetCurrentResourceName()}] router error:`, message);
-      reply(res, 500, err("INTERNAL", message));
+      reply(res, 500, err('INTERNAL', message));
     }
   });
 }

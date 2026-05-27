@@ -1,14 +1,14 @@
-import { loadConvars } from "./config/convars";
-import { logTokenBanner, resolveToken } from "./config/token";
-import { RingBuffer, installConsoleListener } from "./console/buffer";
-import { installHttpRouter } from "./http/router";
-import { registerGetResourceState } from "./tools/getResourceState";
-import { registerHealth } from "./tools/health";
-import { registerListResources } from "./tools/listResources";
-import { registerReadFile } from "./tools/readFile";
-import { registerTailConsole } from "./tools/tailConsole";
+import { loadConvars } from './config/convars';
+import { logTokenBanner, resolveToken } from './config/token';
+import { RingBuffer, installConsoleListener } from './console/buffer';
+import { installHttpRouter } from './http/router';
+import { registerGetResourceState } from './tools/getResourceState';
+import { registerHealth } from './tools/health';
+import { registerListResources } from './tools/listResources';
+import { registerReadFile } from './tools/readFile';
+import { registerTailConsole } from './tools/tailConsole';
 
-const VERSION = "0.0.1";
+const VERSION = '0.0.1';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -35,5 +35,3 @@ function main(): void {
 }
 
 main();
-
-export {};

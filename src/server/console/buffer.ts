@@ -28,10 +28,10 @@ export class RingBuffer {
     if (opts.channel) {
       out = out.filter((l) => l.channel === opts.channel);
     }
-    if (typeof opts.sinceTs === "number") {
+    if (typeof opts.sinceTs === 'number') {
       out = out.filter((l) => l.ts >= opts.sinceTs!);
     }
-    if (typeof opts.lines === "number" && opts.lines > 0) {
+    if (typeof opts.lines === 'number' && opts.lines > 0) {
       out = out.slice(-opts.lines);
     }
     return out;
