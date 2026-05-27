@@ -1,0 +1,22 @@
+{
+  "name": "agent_api",
+  "version": "0.0.1",
+  "private": true,
+  "description": "FiveM resource exposing safe local MCP tools for agentic resource development.",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@citizenfx/client": "^2.0.29753-1",
+    "@citizenfx/server": "^2.0.29753-1",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.0"
+  }
+}
