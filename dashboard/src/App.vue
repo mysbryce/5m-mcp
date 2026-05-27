@@ -1,63 +1,29 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { api, clearSession, getSession, type PublicUser } from './api';
-import AuthCard from './components/AuthCard.vue';
-import PermissionsPanel from './components/PermissionsPanel.vue';
-import UsersPanel from './components/UsersPanel.vue';
+import TopBar from './app/TopBar.vue';
+import AuthView from './features/auth/AuthView.vue';
+import PermissionsView from './features/permissions/PermissionsView.vue';
+import UsersView from './features/users/UsersView.vue';
+import { useAuth } from './features/auth/useAuth';
 
-const ready = ref(false);
-const me = ref<PublicUser | null>(null);
-const signupOpen = ref(false);
-const tab = ref<'permissions' | 'users'>('permissions');
+const { me, ready, boot, logout } = useAuth();
+
+type Tab = 'permissions' | 'users';
+const tab = ref<Tab>('permissions');
 
 onMounted(boot);
-
-async function boot() {
-  const state = await api<{ signupOpen: boolean; userCount: number }>('/auth/state');
-  signupOpen.value = state.data.signupOpen;
-  if (getSession()) {
-    const res = await api<{ user: PublicUser }>('/auth/me');
-    if (res.status === 200) {
-      me.value = res.data.user;
-      ready.value = true;
-      return;
-    }
-    clearSession();
-  }
-  ready.value = true;
-}
-
-function onAuthed(user: PublicUser) {
-  me.value = user;
-}
-
-async function logout() {
-  await api('/auth/logout', 'POST');
-  clearSession();
-  me.value = null;
-  await boot();
-}
 </script>
 
 <template>
-  <header class="topbar">
-    <div class="brand"><span class="dot" /> agent_api <span class="badge">dashboard</span></div>
-    <div class="userbar" v-if="me">
-      <span>
-        {{ me.username }}
-        <span v-if="me.role === 'master'" class="pill master">master</span>
-      </span>
-      <button class="ghost" @click="logout">Sign out</button>
-    </div>
-  </header>
+  <TopBar :user="me" @logout="logout" />
 
-  <div v-if="!ready" class="center">Loading…</div>
+  <div v-if="!ready" class="placeholder">Loading…</div>
 
-  <AuthCard v-else-if="!me" :signup-open="signupOpen" @authed="onAuthed" />
+  <AuthView v-else-if="!me" />
 
   <main v-else>
     <div class="wrap">
-      <div class="tabs">
+      <nav class="tabs">
         <button class="tab" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">
           Permissions
         </button>
@@ -69,9 +35,43 @@ async function logout() {
         >
           Users
         </button>
-      </div>
-      <PermissionsPanel v-if="tab === 'permissions'" />
-      <UsersPanel v-else-if="tab === 'users' && me.role === 'master'" />
+      </nav>
+
+      <PermissionsView v-if="tab === 'permissions'" />
+      <UsersView v-else-if="tab === 'users' && me.role === 'master'" />
     </div>
   </main>
 </template>
+
+<style scoped>
+.placeholder {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 56px);
+  color: var(--muted);
+}
+main {
+  padding: 28px 0 64px;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.tab {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 14px;
+  border-bottom: 2px solid transparent;
+}
+.tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--primary);
+}
+</style>
