@@ -67,7 +67,7 @@ export function listCallable(obj: unknown): string[] {
       if (typeof v === 'function') names.add(k);
     }
   }
-  return [...names].toSorted();
+  return [...names].sort();
 }
 
 const MAX_DEPTH = 6;

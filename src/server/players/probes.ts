@@ -21,11 +21,21 @@ export async function callProbe(
   args: unknown,
   timeoutMs: number,
 ): Promise<Envelope<unknown>> {
+  return callRemote(serverId, `agent_api:probe:${name}`, [args ?? {}], timeoutMs, name);
+}
+
+export async function callRemote(
+  serverId: number,
+  event: string,
+  args: unknown[],
+  timeoutMs: number,
+  label?: string,
+): Promise<Envelope<unknown>> {
   const probeId = randomBytes(8).toString('hex');
   return new Promise<Envelope<unknown>>((resolve) => {
     const timer = setTimeout(() => {
       pending.delete(probeId);
-      resolve(err('CLIENT_PROBE_TIMEOUT', `Probe ${name} timed out after ${timeoutMs}ms.`));
+      resolve(err('CLIENT_PROBE_TIMEOUT', `${label ?? event} timed out after ${timeoutMs}ms.`));
     }, timeoutMs);
     pending.set(probeId, (result) => {
       clearTimeout(timer);
@@ -33,6 +43,6 @@ export async function callProbe(
       if (result.ok) resolve(ok(result.data));
       else resolve(err('INTERNAL', result.error));
     });
-    emitNet(`agent_api:probe:${name}`, serverId, probeId, args ?? {});
+    emitNet(event, serverId, probeId, ...args);
   });
 }

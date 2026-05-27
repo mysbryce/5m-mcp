@@ -6923,11 +6923,14 @@ function installProbeListener() {
   });
 }
 async function callProbe(serverId, name, args, timeoutMs) {
+  return callRemote(serverId, `agent_api:probe:${name}`, [args ?? {}], timeoutMs, name);
+}
+async function callRemote(serverId, event, args, timeoutMs, label) {
   const probeId = (0, import_node_crypto3.randomBytes)(8).toString("hex");
   return new Promise((resolve2) => {
     const timer = setTimeout(() => {
       pending.delete(probeId);
-      resolve2(err("CLIENT_PROBE_TIMEOUT", `Probe ${name} timed out after ${timeoutMs}ms.`));
+      resolve2(err("CLIENT_PROBE_TIMEOUT", `${label ?? event} timed out after ${timeoutMs}ms.`));
     }, timeoutMs);
     pending.set(probeId, (result) => {
       clearTimeout(timer);
@@ -6935,7 +6938,7 @@ async function callProbe(serverId, name, args, timeoutMs) {
       if (result.ok) resolve2(ok(result.data));
       else resolve2(err("INTERNAL", result.error));
     });
-    emitNet(`agent_api:probe:${name}`, serverId, probeId, args ?? {});
+    emitNet(event, serverId, probeId, ...args);
   });
 }
 
@@ -7110,6 +7113,183 @@ function registerWaitForClientEvent() {
       );
       if (!result) return err("TIMEOUT", `No matching ${input.event} within timeout.`);
       return ok(result);
+    }
+  });
+}
+
+// src/server/plugins/dynamic.ts
+var READ_VERBS = ["get", "is", "has", "list", "find", "count", "show", "fetch", "read", "check"];
+var WRITE_VERBS = [
+  "set",
+  "add",
+  "remove",
+  "update",
+  "delete",
+  "create",
+  "do",
+  "trigger",
+  "kick",
+  "ban",
+  "give",
+  "take",
+  "spawn",
+  "register",
+  "unregister",
+  "save",
+  "reset",
+  "clear",
+  "send",
+  "enable",
+  "disable"
+];
+function classifyMethod(name) {
+  const lower = name.toLowerCase();
+  for (const v of READ_VERBS) if (lower.startsWith(v)) return "read";
+  for (const v of WRITE_VERBS) if (lower.startsWith(v)) return "write";
+  return "unknown";
+}
+function isAllowed(name, ctx) {
+  if (ctx.blocklist.has(name)) {
+    return { ok: false, reason: `${name} is in the blocklist.` };
+  }
+  if (ctx.readonly) {
+    const cls = classifyMethod(name);
+    if (cls !== "read") {
+      return {
+        ok: false,
+        reason: `agent_api_readonly is true; only getter-style methods are allowed (got ${cls}).`
+      };
+    }
+  }
+  return { ok: true };
+}
+function listCallable(obj) {
+  if (!obj || typeof obj !== "object" && typeof obj !== "function") return [];
+  const names = /* @__PURE__ */ new Set();
+  for (const k of Object.keys(obj)) {
+    if (typeof obj[k] === "function") names.add(k);
+  }
+  const proto = Object.getPrototypeOf(obj);
+  if (proto && proto !== Object.prototype) {
+    for (const k of Object.getOwnPropertyNames(proto)) {
+      if (k === "constructor") continue;
+      const v = obj[k];
+      if (typeof v === "function") names.add(k);
+    }
+  }
+  return [...names].sort();
+}
+var MAX_DEPTH = 6;
+var MAX_ARRAY = 500;
+var MAX_KEYS = 200;
+function safeSerialize(value, depth = 0, seen = /* @__PURE__ */ new WeakSet()) {
+  if (value === null || value === void 0) return value;
+  const t = typeof value;
+  if (t === "function") {
+    const fn = value;
+    return `[Function: ${fn.name || "anonymous"}]`;
+  }
+  if (t === "bigint") return String(value);
+  if (t === "symbol") return String(value);
+  if (t !== "object") return value;
+  if (depth > MAX_DEPTH) return "[depth-cap]";
+  if (seen.has(value)) return "[circular]";
+  seen.add(value);
+  if (Array.isArray(value)) {
+    const out2 = value.slice(0, MAX_ARRAY).map((v) => safeSerialize(v, depth + 1, seen));
+    if (value.length > MAX_ARRAY) out2.push(`[+${value.length - MAX_ARRAY} more]`);
+    return out2;
+  }
+  const obj = value;
+  const out = {};
+  let count = 0;
+  for (const k of Object.keys(obj)) {
+    if (count++ >= MAX_KEYS) {
+      out["__truncated__"] = `(${Object.keys(obj).length - MAX_KEYS} more keys)`;
+      break;
+    }
+    out[k] = safeSerialize(obj[k], depth + 1, seen);
+  }
+  return out;
+}
+function csvSet(name) {
+  return new Set(
+    GetConvar(name, "").split(",").map((s) => s.trim()).filter(Boolean)
+  );
+}
+
+// src/server/tools/clientNative.ts
+var READ_PREFIXES = ["Get", "Has", "Is", "Does", "Can", "Will", "Network"];
+function isReadOnlyNative(name) {
+  return READ_PREFIXES.some((p) => name.startsWith(p));
+}
+function ensureActiveSubject2(serverId) {
+  if (!getOptIn(serverId)) {
+    return err("PLAYER_NOT_OPTED_IN", `Player ${serverId} has not opted in.`);
+  }
+  if (!isSubject(serverId)) {
+    return err(
+      "PLAYER_NOT_OPTED_IN",
+      `Player ${serverId} is opted in but not in the active subject pool.`
+    );
+  }
+  return ok(true);
+}
+var NativeInput = external_exports.object({
+  serverId: external_exports.number().int().min(1),
+  native: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+  args: external_exports.array(external_exports.unknown()).max(32).optional(),
+  timeoutMs: external_exports.number().int().min(100).max(1e4).optional()
+}).strict();
+var ListInput = external_exports.object({
+  serverId: external_exports.number().int().min(1),
+  prefix: external_exports.string().optional(),
+  limit: external_exports.number().int().min(1).max(2e3).optional(),
+  timeoutMs: external_exports.number().int().min(100).max(1e4).optional()
+}).strict();
+function registerClientCallNative() {
+  register({
+    name: "client_call_native",
+    description: 'Invoke ANY FiveM client native on one registered test subject. Args support special tokens: "$ped" / "$player" / "$serverId" / "$vehicle" / "$lastVehicle" / "$coords" / "$heading" resolved client-side. Read-only natives (prefix Get/Has/Is/Does/Can/Will/Network) always allowed. Mutating natives need agent_api_readonly=false. Block specific natives via agent_api_client_blocked_natives (csv).',
+    input: NativeInput,
+    handler: async (input, ctx) => {
+      const guard = ensureActiveSubject2(input.serverId);
+      if (!guard.ok) return guard;
+      const blocklist = csvSet("agent_api_client_blocked_natives");
+      if (blocklist.has(input.native)) {
+        return err("COMMAND_NOT_ALLOWED", `native ${input.native} is in the blocklist.`);
+      }
+      if (ctx.convars.readonly && !isReadOnlyNative(input.native)) {
+        return err(
+          "COMMAND_NOT_ALLOWED",
+          `readonly mode: ${input.native} does not start with Get/Has/Is/Does/Can/Will/Network.`
+        );
+      }
+      return callRemote(
+        input.serverId,
+        "agent_api:client_native",
+        [input.native, input.args ?? []],
+        input.timeoutMs ?? 3e3,
+        input.native
+      );
+    }
+  });
+}
+function registerClientListNatives() {
+  register({
+    name: "client_list_natives",
+    description: "Enumerate function names available in client globalThis. Filter by case-insensitive prefix substring. Useful before client_call_native to discover what is callable.",
+    input: ListInput,
+    handler: async (input) => {
+      const guard = ensureActiveSubject2(input.serverId);
+      if (!guard.ok) return guard;
+      return callRemote(
+        input.serverId,
+        "agent_api:client_native_list",
+        [input.prefix ?? "", input.limit ?? 500],
+        input.timeoutMs ?? 3e3,
+        "client_list_natives"
+      );
     }
   });
 }
@@ -7334,107 +7514,6 @@ function callExport(resource, name, args) {
   } catch {
     return null;
   }
-}
-
-// src/server/plugins/dynamic.ts
-var READ_VERBS = ["get", "is", "has", "list", "find", "count", "show", "fetch", "read", "check"];
-var WRITE_VERBS = [
-  "set",
-  "add",
-  "remove",
-  "update",
-  "delete",
-  "create",
-  "do",
-  "trigger",
-  "kick",
-  "ban",
-  "give",
-  "take",
-  "spawn",
-  "register",
-  "unregister",
-  "save",
-  "reset",
-  "clear",
-  "send",
-  "enable",
-  "disable"
-];
-function classifyMethod(name) {
-  const lower = name.toLowerCase();
-  for (const v of READ_VERBS) if (lower.startsWith(v)) return "read";
-  for (const v of WRITE_VERBS) if (lower.startsWith(v)) return "write";
-  return "unknown";
-}
-function isAllowed(name, ctx) {
-  if (ctx.blocklist.has(name)) {
-    return { ok: false, reason: `${name} is in the blocklist.` };
-  }
-  if (ctx.readonly) {
-    const cls = classifyMethod(name);
-    if (cls !== "read") {
-      return {
-        ok: false,
-        reason: `agent_api_readonly is true; only getter-style methods are allowed (got ${cls}).`
-      };
-    }
-  }
-  return { ok: true };
-}
-function listCallable(obj) {
-  if (!obj || typeof obj !== "object" && typeof obj !== "function") return [];
-  const names = /* @__PURE__ */ new Set();
-  for (const k of Object.keys(obj)) {
-    if (typeof obj[k] === "function") names.add(k);
-  }
-  const proto = Object.getPrototypeOf(obj);
-  if (proto && proto !== Object.prototype) {
-    for (const k of Object.getOwnPropertyNames(proto)) {
-      if (k === "constructor") continue;
-      const v = obj[k];
-      if (typeof v === "function") names.add(k);
-    }
-  }
-  return [...names].toSorted();
-}
-var MAX_DEPTH = 6;
-var MAX_ARRAY = 500;
-var MAX_KEYS = 200;
-function safeSerialize(value, depth = 0, seen = /* @__PURE__ */ new WeakSet()) {
-  if (value === null || value === void 0) return value;
-  const t = typeof value;
-  if (t === "function") {
-    const fn = value;
-    return `[Function: ${fn.name || "anonymous"}]`;
-  }
-  if (t === "bigint") return String(value);
-  if (t === "symbol") return String(value);
-  if (t !== "object") return value;
-  if (depth > MAX_DEPTH) return "[depth-cap]";
-  if (seen.has(value)) return "[circular]";
-  seen.add(value);
-  if (Array.isArray(value)) {
-    const out2 = value.slice(0, MAX_ARRAY).map((v) => safeSerialize(v, depth + 1, seen));
-    if (value.length > MAX_ARRAY) out2.push(`[+${value.length - MAX_ARRAY} more]`);
-    return out2;
-  }
-  const obj = value;
-  const out = {};
-  let count = 0;
-  for (const k of Object.keys(obj)) {
-    if (count++ >= MAX_KEYS) {
-      out["__truncated__"] = `(${Object.keys(obj).length - MAX_KEYS} more keys)`;
-      break;
-    }
-    out[k] = safeSerialize(obj[k], depth + 1, seen);
-  }
-  return out;
-}
-function csvSet(name) {
-  return new Set(
-    GetConvar(name, "").split(",").map((s) => s.trim()).filter(Boolean)
-  );
 }
 
 // src/server/plugins/esx/index.ts
@@ -9509,7 +9588,7 @@ var oxLibPlugin = {
           if (typeof v === "function") fns.push(k);
           else if (v !== null && typeof v === "object") ns.push(k);
         }
-        return ok({ methods: fns.toSorted(), namespaces: ns.toSorted() });
+        return ok({ methods: fns.sort(), namespaces: ns.sort() });
       }
     });
     const blocklist = csvSet("agent_api_plugin_oxlib_blocked_methods");
@@ -9760,6 +9839,8 @@ function main() {
   registerTriggerClientEvent();
   registerSendChat();
   registerWaitForClientEvent();
+  registerClientCallNative();
+  registerClientListNatives();
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
   registerListPlugins();

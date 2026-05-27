@@ -10,7 +10,8 @@
   "rules": {
     "no-unused-vars": "warn",
     "no-console": "off",
-    "unicorn/require-module-specifiers": "off"
+    "unicorn/require-module-specifiers": "off",
+    "unicorn/no-array-sort": "off"
   },
   "env": {
     "node": true,

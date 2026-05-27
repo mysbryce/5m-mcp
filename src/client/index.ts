@@ -1,8 +1,10 @@
 import { installClientProbes } from './events';
+import { installClientNativeBridge } from './native';
 
 const RESOURCE_NAME = GetCurrentResourceName();
 const VERSION = '0.0.1';
 
 installClientProbes();
+installClientNativeBridge();
 
-console.log(`[${RESOURCE_NAME}] client up — v${VERSION} (M5)`);
+console.log(`[${RESOURCE_NAME}] client up — v${VERSION} (M6)`);

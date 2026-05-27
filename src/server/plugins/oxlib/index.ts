@@ -120,7 +120,7 @@ export const oxLibPlugin: Plugin = {
           if (typeof v === 'function') fns.push(k);
           else if (v !== null && typeof v === 'object') ns.push(k);
         }
-        return ok({ methods: fns.toSorted(), namespaces: ns.toSorted() });
+        return ok({ methods: fns.sort(), namespaces: ns.sort() });
       },
     });
 
