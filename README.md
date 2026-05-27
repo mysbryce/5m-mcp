@@ -1,5 +1,8 @@
 # agent_api
 
+> Source: <https://github.com/mysbryce/5m-mcp>
+> License: [PolyForm Noncommercial 1.0.0](./LICENSE) — non-commercial use only, attribution required.
+
 FiveM resource that exposes a safe, local **MCP** (Model Context Protocol) tool surface so an agent can develop, debug, and live-test FiveM resources against a running server.
 
 - Filesystem ops (read / write / scaffold) inside a sandboxed write root

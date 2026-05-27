@@ -3,6 +3,25 @@
   "version": "0.0.1",
   "private": true,
   "description": "FiveM resource exposing safe local MCP tools for agentic resource development.",
+  "license": "SEE LICENSE IN ./LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mysbryce/5m-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mysbryce/5m-mcp/issues"
+  },
+  "homepage": "https://github.com/mysbryce/5m-mcp#readme",
+  "keywords": [
+    "fivem",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "agent",
+    "esx",
+    "ox_lib",
+    "oxmysql"
+  ],
   "scripts": {
     "build": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch",
