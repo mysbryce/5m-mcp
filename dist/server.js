@@ -4623,6 +4623,185 @@ function registerHealth(version) {
   });
 }
 
+// src/server/runtime/capture.ts
+var POLL_INTERVAL_MS = 50;
+var sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+async function waitUntil(predicate, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return true;
+    await sleep(POLL_INTERVAL_MS);
+  }
+  return predicate();
+}
+async function captureAround(buffer, fn, opts) {
+  const startIdx = buffer.length();
+  const result = await fn();
+  let reachedExpectedState = null;
+  if ("waitForState" in opts) {
+    reachedExpectedState = await waitUntil(
+      () => GetResourceState(opts.waitForState.name) === opts.waitForState.expect,
+      opts.timeoutMs ?? 3e3
+    );
+  } else {
+    await sleep(opts.delayMs);
+  }
+  return {
+    result,
+    lines: buffer.slice(startIdx),
+    reachedExpectedState
+  };
+}
+
+// src/server/runtime/command.ts
+var RESOURCE_VERBS = /* @__PURE__ */ new Set(["ensure", "start", "stop", "restart"]);
+var SAFE_NO_ARG = /* @__PURE__ */ new Set(["refresh", "status", "players"]);
+var SAFE_TEXT_ARG = /* @__PURE__ */ new Set(["say"]);
+var BANNED = /* @__PURE__ */ new Set([
+  "quit",
+  "exec",
+  "set",
+  "sets",
+  "setr",
+  "add_ace",
+  "add_principal",
+  "remove_ace",
+  "remove_principal",
+  "rcon_password",
+  "endpoint_add_tcp",
+  "endpoint_add_udp"
+]);
+function parseAllowedCommand(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return err("INVALID_INPUT", "Empty command.");
+  }
+  const [verbRaw, ...rest] = trimmed.split(/\s+/);
+  const verb = (verbRaw ?? "").toLowerCase();
+  if (BANNED.has(verb)) {
+    return err("COMMAND_NOT_ALLOWED", `Banned command: ${verb}`);
+  }
+  if (SAFE_NO_ARG.has(verb)) {
+    if (rest.length > 0) {
+      return err("INVALID_INPUT", `Command ${verb} takes no arguments.`);
+    }
+    return ok({ kind: "no_arg", verb });
+  }
+  if (RESOURCE_VERBS.has(verb)) {
+    if (rest.length !== 1) {
+      return err("INVALID_INPUT", `Command ${verb} requires exactly one resource name.`);
+    }
+    const resource = rest[0];
+    if (!VALID_RESOURCE_NAME.test(resource)) {
+      return err("INVALID_INPUT", `Invalid resource name: ${resource}`);
+    }
+    return ok({ kind: "resource", verb, resource });
+  }
+  if (SAFE_TEXT_ARG.has(verb)) {
+    const text = rest.join(" ");
+    if (!text) {
+      return err("INVALID_INPUT", `Command ${verb} requires a message.`);
+    }
+    return ok({ kind: "text", verb, text });
+  }
+  return err("COMMAND_NOT_ALLOWED", `Command not in allowlist: ${verb}`);
+}
+function runConsole(command) {
+  ExecuteCommand(command);
+}
+
+// src/server/runtime/lifecycle.ts
+var EXPECTED_STATE = {
+  ensure: "started",
+  start: "started",
+  stop: "stopped",
+  restart: "started"
+};
+async function runLifecycle(verb, resource, ctx) {
+  const info = getResourceInfo(resource);
+  if (!info) {
+    return err("RESOURCE_NOT_FOUND", `Resource not found: ${resource}`);
+  }
+  if (!pathWithinAnyRoot(info.path, ctx.controlRoots)) {
+    return err("COMMAND_NOT_ALLOWED", "Resource is not within any configured control root.", {
+      resource,
+      controlRoots: ctx.controlRoots
+    });
+  }
+  const expected = EXPECTED_STATE[verb];
+  const stateBefore = info.state;
+  const capture = await captureAround(ctx.console, () => runConsole(`${verb} ${resource}`), {
+    waitForState: { name: resource, expect: expected },
+    timeoutMs: ctx.timeoutMs ?? 3e3
+  });
+  const stateAfter = GetResourceState(resource);
+  const reached = capture.reachedExpectedState ?? false;
+  const data = {
+    resource,
+    verb,
+    stateBefore,
+    stateAfter,
+    expectedState: expected,
+    reachedExpectedState: reached,
+    lines: capture.lines
+  };
+  if (!reached) {
+    return err("RESOURCE_FAILED_TO_START", `${verb} ${resource} did not reach state ${expected}.`, {
+      ...data
+    });
+  }
+  return ok(data);
+}
+
+// src/server/tools/lifecycle.ts
+var Input = external_exports.object({
+  name: external_exports.string().min(1),
+  timeoutMs: external_exports.number().int().min(100).max(3e4).optional()
+}).strict();
+function registerLifecycle(toolName, verb, description) {
+  register({
+    name: toolName,
+    description,
+    input: Input,
+    handler: async (input, ctx) => withLock(
+      input.name,
+      () => runLifecycle(verb, input.name, {
+        console: ctx.console,
+        controlRoots: ctx.convars.controlRoots,
+        ...input.timeoutMs !== void 0 ? { timeoutMs: input.timeoutMs } : {}
+      })
+    )
+  });
+}
+function registerEnsureResource() {
+  registerLifecycle(
+    "ensure_resource",
+    "ensure",
+    "Run the FiveM `ensure` command for a resource and wait until it reaches state `started`. Returns state-before/after and console lines captured during the wait."
+  );
+}
+function registerStartResource() {
+  registerLifecycle(
+    "start_resource",
+    "start",
+    "Start a stopped resource and wait until state == `started`."
+  );
+}
+function registerStopResource() {
+  registerLifecycle(
+    "stop_resource",
+    "stop",
+    "Stop a started resource and wait until state == `stopped`."
+  );
+}
+function registerRestartResource() {
+  registerLifecycle(
+    "restart_resource",
+    "restart",
+    "Restart a resource and wait until state == `started`."
+  );
+}
+
 // src/server/tools/listResources.ts
 function registerListResources() {
   register({
@@ -4709,21 +4888,21 @@ async function runRefresh() {
 }
 
 // src/server/tools/refreshResources.ts
-var Input = external_exports.object({
+var Input2 = external_exports.object({
   waitMs: external_exports.number().int().min(0).max(5e3).optional()
 }).strict();
-var sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+var sleep2 = (ms) => new Promise((res) => setTimeout(res, ms));
 function registerRefreshResources() {
   register({
     name: "refresh_resources",
     description: "Execute the FiveM `refresh` command so newly created folders are discovered. Returns console lines captured during the wait window.",
-    input: Input,
+    input: Input2,
     handler: async (input, ctx) => {
       const wait = input.waitMs ?? 750;
       return withLock(GLOBAL_LOCK, async () => {
         const startIdx = ctx.console.length();
         await runRefresh();
-        if (wait > 0) await sleep(wait);
+        if (wait > 0) await sleep2(wait);
         const lines = ctx.console.slice(startIdx);
         return ok({ lines, count: lines.length });
       });
@@ -4731,8 +4910,49 @@ function registerRefreshResources() {
   });
 }
 
+// src/server/tools/runCommand.ts
+var Input3 = external_exports.object({
+  command: external_exports.string().min(1),
+  waitMs: external_exports.number().int().min(0).max(5e3).optional(),
+  timeoutMs: external_exports.number().int().min(100).max(3e4).optional()
+}).strict();
+function registerRunCommand() {
+  register({
+    name: "run_command",
+    description: "Run a console command from the allowlist (refresh, ensure/start/stop/restart <name>, status, players, say <text>). Returns captured console lines and, for lifecycle verbs, a structured state-before/after envelope.",
+    input: Input3,
+    handler: async (input, ctx) => {
+      const parsed = parseAllowedCommand(input.command);
+      if (!parsed.ok) return parsed;
+      const cmd = parsed.data;
+      if (cmd.kind === "resource") {
+        return withLock(
+          cmd.resource,
+          () => runLifecycle(cmd.verb, cmd.resource, {
+            console: ctx.console,
+            controlRoots: ctx.convars.controlRoots,
+            ...input.timeoutMs !== void 0 ? { timeoutMs: input.timeoutMs } : {}
+          })
+        );
+      }
+      const wait = input.waitMs ?? 1e3;
+      const literal = cmd.kind === "no_arg" ? cmd.verb : `${cmd.verb} ${cmd.text}`;
+      return withLock(GLOBAL_LOCK, async () => {
+        const capture = await captureAround(ctx.console, () => runConsole(literal), {
+          delayMs: wait
+        });
+        return ok({
+          command: literal,
+          lines: capture.lines,
+          count: capture.lines.length
+        });
+      });
+    }
+  });
+}
+
 // src/server/tools/tailConsole.ts
-var Input2 = external_exports.object({
+var Input4 = external_exports.object({
   lines: external_exports.number().int().min(1).max(5e3).optional(),
   sinceTs: external_exports.number().int().min(0).optional(),
   channel: external_exports.string().optional()
@@ -4741,7 +4961,7 @@ function registerTailConsole() {
   register({
     name: "tail_console",
     description: "Return recent lines from the in-memory console ring buffer. Filter by since timestamp (ms epoch) or channel.",
-    input: Input2,
+    input: Input4,
     handler: async (input, ctx) => {
       const opts = {};
       if (input.lines !== void 0) opts.lines = input.lines;
@@ -4838,11 +5058,16 @@ function main() {
   registerWriteFile();
   registerCreateResource();
   registerRefreshResources();
+  registerEnsureResource();
+  registerStartResource();
+  registerStopResource();
+  registerRestartResource();
+  registerRunCommand();
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer }
   });
-  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M2)`);
+  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M3)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 main();

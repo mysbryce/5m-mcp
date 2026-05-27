@@ -5,9 +5,16 @@ import { installHttpRouter } from './http/router';
 import { registerCreateResource } from './tools/createResource';
 import { registerGetResourceState } from './tools/getResourceState';
 import { registerHealth } from './tools/health';
+import {
+  registerEnsureResource,
+  registerRestartResource,
+  registerStartResource,
+  registerStopResource,
+} from './tools/lifecycle';
 import { registerListResources } from './tools/listResources';
 import { registerReadFile } from './tools/readFile';
 import { registerRefreshResources } from './tools/refreshResources';
+import { registerRunCommand } from './tools/runCommand';
 import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
 
@@ -30,13 +37,18 @@ function main(): void {
   registerWriteFile();
   registerCreateResource();
   registerRefreshResources();
+  registerEnsureResource();
+  registerStartResource();
+  registerStopResource();
+  registerRestartResource();
+  registerRunCommand();
 
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer },
   });
 
-  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M2)`);
+  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M3)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 
