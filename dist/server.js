@@ -78,6 +78,15 @@ function logTokenBanner(token, generated) {
   console.log(`${tag}     "headers": { "x-agent-token": "${token}" }`);
   console.log(`${tag}   }`);
   console.log(`${tag}`);
+  console.log(`${tag} For lifecycle tools, grant ACE permissions in server.cfg:`);
+  console.log(`${tag}`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.ensure  allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.start   allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.stop    allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.restart allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.refresh allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.say     allow`);
+  console.log(`${tag}`);
 }
 
 // src/server/console/buffer.ts
@@ -4655,7 +4664,7 @@ async function captureAround(buffer, fn, opts) {
 
 // src/server/runtime/command.ts
 var RESOURCE_VERBS = /* @__PURE__ */ new Set(["ensure", "start", "stop", "restart"]);
-var SAFE_NO_ARG = /* @__PURE__ */ new Set(["refresh", "status", "players"]);
+var SAFE_NO_ARG = /* @__PURE__ */ new Set(["refresh", "players"]);
 var SAFE_TEXT_ARG = /* @__PURE__ */ new Set(["say"]);
 var BANNED = /* @__PURE__ */ new Set([
   "quit",
@@ -4919,7 +4928,7 @@ var Input3 = external_exports.object({
 function registerRunCommand() {
   register({
     name: "run_command",
-    description: "Run a console command from the allowlist (refresh, ensure/start/stop/restart <name>, status, players, say <text>). Returns captured console lines and, for lifecycle verbs, a structured state-before/after envelope.",
+    description: "Run a console command from the allowlist (refresh, ensure/start/stop/restart <name>, players, say <text>). Returns captured console lines and, for lifecycle verbs, a structured state-before/after envelope.",
     input: Input3,
     handler: async (input, ctx) => {
       const parsed = parseAllowedCommand(input.command);

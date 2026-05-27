@@ -78,7 +78,7 @@ async function main() {
     { expectFail: true },
   );
 
-  summarize('run_command status', await post('run_command', { command: 'status', waitMs: 300 }));
+  summarize('run_command players', await post('run_command', { command: 'players', waitMs: 300 }));
   summarize('reject banned command', await post('run_command', { command: 'quit' }), {
     expectFail: true,
   });

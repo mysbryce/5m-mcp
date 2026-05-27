@@ -21,7 +21,7 @@ export function registerRunCommand(): void {
     name: 'run_command',
     description:
       'Run a console command from the allowlist (refresh, ensure/start/stop/restart <name>, ' +
-      'status, players, say <text>). Returns captured console lines and, for lifecycle verbs, ' +
+      'players, say <text>). Returns captured console lines and, for lifecycle verbs, ' +
       'a structured state-before/after envelope.',
     input: Input,
     handler: async (input: Input, ctx: ToolContext): Promise<Envelope<unknown>> => {

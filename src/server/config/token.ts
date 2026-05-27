@@ -50,4 +50,13 @@ export function logTokenBanner(token: string, generated: boolean): void {
   console.log(`${tag}     "headers": { "x-agent-token": "${token}" }`);
   console.log(`${tag}   }`);
   console.log(`${tag}`);
+  console.log(`${tag} For lifecycle tools, grant ACE permissions in server.cfg:`);
+  console.log(`${tag}`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.ensure  allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.start   allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.stop    allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.restart allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.refresh allow`);
+  console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.say     allow`);
+  console.log(`${tag}`);
 }

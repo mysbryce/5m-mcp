@@ -2,7 +2,7 @@ import { Envelope, err, ok } from '../util/envelope';
 import { VALID_RESOURCE_NAME } from '../fs/sandbox';
 
 const RESOURCE_VERBS = new Set(['ensure', 'start', 'stop', 'restart']);
-const SAFE_NO_ARG = new Set(['refresh', 'status', 'players']);
+const SAFE_NO_ARG = new Set(['refresh', 'players']);
 const SAFE_TEXT_ARG = new Set(['say']);
 
 const BANNED = new Set([
