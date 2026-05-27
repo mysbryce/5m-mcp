@@ -40,7 +40,7 @@ export function DocsSidebar({ tree }: { tree: PageTree.Root }) {
           />
           <span className="text-sm font-semibold tracking-tight">agent_api</span>
           <span className="ml-1 rounded bg-fd-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-fd-muted-foreground">
-            v0.0.1
+            v0.1.0
           </span>
         </Link>
       </div>
