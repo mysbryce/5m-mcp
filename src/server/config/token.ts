@@ -59,4 +59,7 @@ export function logTokenBanner(token: string, generated: boolean): void {
   console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.refresh allow`);
   console.log(`${tag}   add_ace resource.${GetCurrentResourceName()} command.say     allow`);
   console.log(`${tag}`);
+  console.log(`${tag} Web dashboard (create the master account on first visit):`);
+  console.log(`${tag}   http://127.0.0.1:30120/${GetCurrentResourceName()}/dashboard`);
+  console.log(`${tag}`);
 }

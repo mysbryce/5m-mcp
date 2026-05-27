@@ -38,11 +38,15 @@ import { registerListPlugins, setPluginSnapshot } from './tools/plugins';
 import { registerPrompt } from './mcp/prompts';
 import { scaffoldFivemPrompt } from './mcp/prompts/scaffoldFivem';
 import { registerScaffoldFivemWorkflow } from './tools/scaffoldWorkflow';
+import { applyPersistedOverrides } from './dashboard/permissions';
 
 const VERSION = '0.0.1';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
+  // Apply any dashboard-saved permission overrides before reading convars.
+  applyPersistedOverrides();
+
   const convars = loadConvars();
   const tokenInfo = resolveToken(convars.rawToken);
   logTokenBanner(tokenInfo.token, tokenInfo.generated);
@@ -91,10 +95,14 @@ function main(): void {
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer },
+    reloadConvars: () => {
+      Object.assign(convars, loadConvars());
+    },
   });
 
   console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M6)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
+  console.log(`[${RESOURCE_NAME}] Dashboard at http://127.0.0.1:30120/${RESOURCE_NAME}/dashboard`);
 }
 
 main();

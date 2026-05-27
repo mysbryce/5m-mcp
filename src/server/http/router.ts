@@ -6,6 +6,7 @@ import { audit, hashToken } from '../audit/log';
 import { handleMcpRequest } from '../mcp/server';
 import { RpcErrorCode, isJsonRpcRequest, rpcError } from '../mcp/jsonrpc';
 import { TokenBucket } from '../runtime/rateLimit';
+import { handleDashboard } from '../dashboard/router';
 
 type FivemReq = {
   address: string;
@@ -59,6 +60,7 @@ function lowercaseHeaders(h: Record<string, string>): Record<string, string> {
 export type RouterDeps = {
   token: string;
   ctx: ToolContext;
+  reloadConvars: () => void;
 };
 
 export function installHttpRouter(deps: RouterDeps): void {
@@ -76,6 +78,16 @@ export function installHttpRouter(deps: RouterDeps): void {
 
       if (req.method === 'GET' && path === '/health') {
         reply(res, 200, ok({ status: 'up', resource: GetCurrentResourceName() }));
+        return;
+      }
+
+      if (path === '/dashboard' || path.startsWith('/dashboard/')) {
+        const body = await readBody(req);
+        const dash = await handleDashboard(req.method, path, headers, body, {
+          reloadConvars: deps.reloadConvars,
+        });
+        res.writeHead(dash.status, dash.headers);
+        res.send(dash.body);
         return;
       }
 
