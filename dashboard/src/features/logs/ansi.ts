@@ -23,6 +23,25 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// Deterministic color for a console prefix/resource — the same channel always
+// gets the same color; different channels get different (hue, sat, light) tuples
+// so even a hue collision lands on a distinct shade. Constrained to stay readable
+// on the dark background.
+export function channelColor(channel: string): string {
+  let h1 = 2166136261;
+  let h2 = 5381;
+  for (let i = 0; i < channel.length; i++) {
+    const c = channel.charCodeAt(i);
+    h1 = (h1 ^ c) >>> 0;
+    h1 = (h1 * 16777619) >>> 0;
+    h2 = ((h2 * 33) ^ c) >>> 0;
+  }
+  const hue = h1 % 360;
+  const sat = 60 + (h2 % 24); // 60–83%
+  const light = 60 + ((h1 >>> 8) % 16); // 60–75%
+  return `hsl(${hue} ${sat}% ${light}%)`;
+}
+
 export function consoleLineToHtml(raw: string): string {
   // Drop ANSI escape sequences if present (we color from caret codes).
   const text = raw.replace(/\[[0-9;]*m/g, '');

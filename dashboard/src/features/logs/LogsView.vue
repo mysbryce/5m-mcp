@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import UiButton from '../../shared/ui/UiButton.vue';
 import UiToggle from '../../shared/ui/UiToggle.vue';
 import { useLogs } from './useLogs';
-import { consoleLineToHtml } from './ansi';
+import { channelColor, consoleLineToHtml } from './ansi';
 import { useI18n } from '../../i18n/useI18n';
 
 const { lines, entries, loadingAudit, initConsole, pollConsole, loadAudit } = useLogs();
@@ -108,7 +108,7 @@ onUnmounted(() => {
     <div v-if="view === 'console'" ref="consoleBox" class="card console">
       <p v-if="!lines.length" class="muted pad">{{ t('logs.empty') }}</p>
       <div v-for="(l, i) in lines" :key="i" class="cline">
-        <span class="ch">{{ l.channel }}</span>
+        <span class="ch" :style="{ color: channelColor(l.channel) }">{{ l.channel }}</span>
         <span class="msg" v-html="consoleLineToHtml(l.message)" />
       </div>
     </div>
@@ -232,11 +232,10 @@ onUnmounted(() => {
   width: 150px;
   flex-shrink: 0;
   text-align: right;
-  color: var(--muted);
-  opacity: 0.75;
   padding-right: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
 }
 .msg {
   flex: 1;
