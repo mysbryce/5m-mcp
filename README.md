@@ -1,4 +1,4 @@
-# agent_api
+# 5m-mcp
 
 > 📖 **Docs site:** <https://mysbryce.github.io/5m-mcp/>
 > Source: <https://github.com/mysbryce/5m-mcp>
@@ -14,6 +14,8 @@ FiveM resource that exposes a safe, local **MCP** (Model Context Protocol) tool 
 - HTTP MCP transport (Claude Code talks directly) + stdio shim for other clients
 
 > Single resource. No external sidecar. Drop folder → ensure → ready.
+
+> ℹ️ The project is **5m-mcp**; the FiveM resource you install is named `agent_api` (its convars, routes, and ACE identifiers all use the `agent_api` prefix).
 
 ---
 

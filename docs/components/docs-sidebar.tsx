@@ -38,9 +38,9 @@ export function DocsSidebar({ tree }: { tree: PageTree.Root }) {
             aria-hidden
             className="inline-block size-2 rounded-full bg-[oklch(0.6049_0.1419_276.7)] shadow-[0_0_12px_oklch(0.6049_0.1419_276.7/0.8)]"
           />
-          <span className="text-sm font-semibold tracking-tight">agent_api</span>
+          <span className="text-sm font-semibold tracking-tight">5m-mcp</span>
           <span className="ml-1 rounded bg-fd-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-fd-muted-foreground">
-            v0.1.3
+            v0.1.4
           </span>
         </Link>
       </div>

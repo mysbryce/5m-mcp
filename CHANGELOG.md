@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] — 2026-05-27
+
+### Changed
+
+- Project rebranded to **5m-mcp** for display/branding (README title, docs site
+  title + sidebar label, npm package names). The installed FiveM resource keeps
+  its technical name `agent_api` — convars (`agent_api_*`), HTTP routes
+  (`/agent_api/...`), ACE identifiers (`resource.agent_api`), and the MCP
+  `serverInfo.name` are unchanged, so existing installs need no migration.
+
 ## [0.1.3] — 2026-05-27
 
 ### Added

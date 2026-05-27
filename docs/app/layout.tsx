@@ -15,13 +15,13 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'agent_api',
-    template: '%s · agent_api',
+    default: '5m-mcp',
+    template: '%s · 5m-mcp',
   },
   description: 'Let any MCP agent build, run, and debug FiveM resources live.',
   metadataBase: new URL('https://mysbryce.github.io/5m-mcp'),
   openGraph: {
-    title: 'agent_api',
+    title: '5m-mcp',
     description:
       'A FiveM resource that hands the keys to your AI agent — safely.',
     type: 'website',
