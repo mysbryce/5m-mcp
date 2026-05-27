@@ -13,6 +13,12 @@ const status = ref<{ text: string; tone: 'neutral' | 'error' | 'ok' } | null>(nu
 
 onMounted(load);
 
+function groupLabel(group: string): string {
+  const key = `permGroup.${group}`;
+  const v = t(key);
+  return v === key ? group : v;
+}
+
 async function onSave() {
   if (!dirty.value) {
     status.value = { text: t('perm.nothingChanged'), tone: 'neutral' };
@@ -35,7 +41,7 @@ async function onSave() {
 
     <template v-else>
       <div v-for="(items, group) in groups" :key="group" class="group">
-        <h3>{{ group }}</h3>
+        <h3>{{ groupLabel(group) }}</h3>
         <div class="card">
           <PermissionRow
             v-for="p in items"

@@ -3,9 +3,23 @@ import { computed } from 'vue';
 import UiToggle from '../../shared/ui/UiToggle.vue';
 import UiSelect from '../../shared/ui/UiSelect.vue';
 import type { PermDescriptor } from '../../shared/types';
+import { useI18n } from '../../i18n/useI18n';
 
 const props = defineProps<{ descriptor: PermDescriptor; value: string }>();
 const emit = defineEmits<{ change: [value: string] }>();
+
+const { t } = useI18n();
+
+// Prefer a dashboard translation keyed by convar; fall back to the
+// server-provided English label/description when no translation exists.
+function tr(key: string, fallback: string): string {
+  const v = t(key);
+  return v === key ? fallback : v;
+}
+const label = computed(() => tr(`perm.${props.descriptor.convar}.label`, props.descriptor.label));
+const desc = computed(() =>
+  tr(`perm.${props.descriptor.convar}.desc`, props.descriptor.description),
+);
 
 function onBool(v: boolean) {
   emit('change', v ? 'true' : 'false');
@@ -28,8 +42,8 @@ const enumModel = computed({
 <template>
   <div class="perm">
     <div class="meta">
-      <div class="name">{{ descriptor.label }}</div>
-      <div class="desc">{{ descriptor.description }}</div>
+      <div class="name">{{ label }}</div>
+      <div class="desc">{{ desc }}</div>
     </div>
     <div class="ctrl">
       <UiToggle
