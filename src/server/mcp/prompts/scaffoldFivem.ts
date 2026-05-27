@@ -230,6 +230,26 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 ---
 
+## UI testing flow (only if UI was scaffolded and the user asks to verify or iterate)
+
+When the task involves checking or iterating on the UI's visual state — including phrases like "ลองดู UI", "เทส UI", "check the look", "does it render", "screenshot it", or any iteration after a UI edit — execute this loop. Never skip steps.
+
+1. **Tell the user to opt in as a test subject themselves** in chat: \`/agent_test_optin\`. Wait for them to confirm they did it. Then read their serverId via \`list_players\`.
+
+2. **Tell the user to open the resource UI on the client** (e.g. press F6 or type the resource's open command). Wait for confirmation; the FiveM CEF DevTools index at \`http://localhost:13172/\` won't expose an \`<a>\` until the NUI surface is live.
+
+3. **Capture**: call \`screenshot_nui({})\`. The tool will:
+   - hit the CEF DevTools index
+   - follow the first \`<a>\` (the only live NUI surface)
+   - take a full-page screenshot
+   - return an absolute PNG path under \`agent_api/dist/screenshots/\`
+
+4. **View the screenshot** using the Read tool (Claude can view PNGs directly). Describe what you see and decide whether the UI matches the spec.
+
+5. **Clean up immediately** with \`delete_screenshot({ path })\` even if you took multiple captures. Never leave a screenshot behind.
+
+6. If a fix is needed, write the file edit and \`restart_resource\` for the target resource, then ask the user to reopen the UI and loop back to step 3.
+
 ## Scaffolding phase (only after confirmed)
 
 1. Call \`create_resource({ name, description, author })\`.

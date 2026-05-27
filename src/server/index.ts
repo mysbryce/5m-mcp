@@ -26,6 +26,7 @@ import {
 import { registerClientCallNative, registerClientListNatives } from './tools/clientNative';
 import { registerServerCallNative, registerServerListNatives } from './tools/serverNative';
 import { registerRunShell } from './tools/runShell';
+import { registerScreenshotNui } from './tools/screenshotNui';
 import { registerRunCommand } from './tools/runCommand';
 import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
@@ -74,6 +75,7 @@ function main(): void {
   registerServerCallNative();
   registerServerListNatives();
   registerRunShell();
+  registerScreenshotNui();
 
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();

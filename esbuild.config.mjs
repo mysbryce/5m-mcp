@@ -31,6 +31,13 @@ const targets = [
     outfile: 'dist/mcp-stdio.js',
     banner: { js: '#!/usr/bin/env node' },
   },
+  {
+    ...common,
+    entryPoints: ['src/bin/screenshot-nui.ts'],
+    outfile: 'dist/screenshot-nui.js',
+    banner: { js: '#!/usr/bin/env node' },
+    external: ['playwright'],
+  },
 ];
 
 async function run() {

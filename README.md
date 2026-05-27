@@ -202,6 +202,17 @@ Reflective dispatch helpers — `csvSet`, `isAllowed`, `listCallable`, `safeSeri
 
 ---
 
+## Optional: UI screenshot capability
+
+For `screenshot_nui` to work, install Chromium for Playwright once (~150 MB):
+
+```sh
+cd <agent_api folder>
+npx playwright install chromium
+```
+
+The tool captures the FiveM CEF DevTools view of the active NUI surface to `dist/screenshots/`. Always pair with `delete_screenshot` after viewing.
+
 ## Dev
 
 ```sh

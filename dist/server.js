@@ -99,10 +99,10 @@ function triggerServerCallback(eventName, delay, ...args) {
   while (pendingCallbacks[key]);
   emitNet(`ox_lib:validateCallback`, eventName, cache.resource, key);
   emitNet(`__ox_cb_${eventName}`, cache.resource, key, ...args);
-  return new Promise((resolve3, reject) => {
+  return new Promise((resolve4, reject) => {
     pendingCallbacks[key] = (args2) => {
       if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
-      resolve3(args2);
+      resolve4(args2);
     };
     setTimeout(reject, callbackTimeout, `callback event '${key}' timed out`);
   });
@@ -128,10 +128,10 @@ var init_callback = __esm({
     callbackTimeout = GetConvarInt("ox:callbackTimeout", 3e5);
     onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
       if (!source) return;
-      const resolve3 = pendingCallbacks[key];
-      if (!resolve3) return;
+      const resolve4 = pendingCallbacks[key];
+      if (!resolve4) return;
       delete pendingCallbacks[key];
-      resolve3(...args);
+      resolve4(...args);
     });
     eventTimers = {};
   }
@@ -371,11 +371,11 @@ var require_MySQL = __commonJS({
     var exp = global.exports.oxmysql;
     var currentResourceName = GetCurrentResourceName();
     function execute(method, query, params) {
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         exp[method](query, params, (result, error) => {
           if (error)
             return reject(error);
-          resolve3(result);
+          resolve4(result);
         }, currentResourceName, true);
       });
     }
@@ -387,7 +387,7 @@ var require_MySQL = __commonJS({
       ready(callback) {
         setImmediate(async () => {
           while (GetResourceState("oxmysql") !== "started")
-            await new Promise((resolve3) => setTimeout(resolve3, 50, null));
+            await new Promise((resolve4) => setTimeout(resolve4, 50, null));
           callback();
         });
       },
@@ -6140,15 +6140,15 @@ var JSON_HEADERS = {
   "Cache-Control": "no-store"
 };
 function readBody(req) {
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      resolve3("");
+      resolve4("");
       return;
     }
     try {
-      req.setDataHandler((data) => resolve3(data ?? ""));
+      req.setDataHandler((data) => resolve4(data ?? ""));
     } catch {
-      resolve3("");
+      resolve4("");
     }
   });
 }
@@ -7027,16 +7027,16 @@ async function callProbe(serverId, name, args, timeoutMs) {
 }
 async function callRemote(serverId, event, args, timeoutMs, label) {
   const probeId = (0, import_node_crypto3.randomBytes)(8).toString("hex");
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const timer = setTimeout(() => {
       pending.delete(probeId);
-      resolve3(err("CLIENT_PROBE_TIMEOUT", `${label ?? event} timed out after ${timeoutMs}ms.`));
+      resolve4(err("CLIENT_PROBE_TIMEOUT", `${label ?? event} timed out after ${timeoutMs}ms.`));
     }, timeoutMs);
     pending.set(probeId, (result) => {
       clearTimeout(timer);
       pending.delete(probeId);
-      if (result.ok) resolve3(ok(result.data));
-      else resolve3(err("INTERNAL", result.error));
+      if (result.ok) resolve4(ok(result.data));
+      else resolve4(err("INTERNAL", result.error));
     });
     emitNet(event, serverId, probeId, ...args);
   });
@@ -7065,12 +7065,12 @@ function ensureNetHandler(event) {
 }
 function waitForClientEvent(event, timeoutMs, fromSubject) {
   ensureNetHandler(event);
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const timer = setTimeout(() => {
       listeners.delete(listener);
-      resolve3(null);
+      resolve4(null);
     }, timeoutMs);
-    const listener = fromSubject === void 0 ? { event, resolve: resolve3, timer } : { event, fromSubject, resolve: resolve3, timer };
+    const listener = fromSubject === void 0 ? { event, resolve: resolve4, timer } : { event, fromSubject, resolve: resolve4, timer };
     listeners.add(listener);
   });
 }
@@ -7616,6 +7616,130 @@ function registerRunShell() {
   });
 }
 
+// src/server/tools/screenshotNui.ts
+var import_node_child_process2 = require("node:child_process");
+var import_node_fs5 = require("node:fs");
+var import_node_path6 = require("node:path");
+var DEFAULT_DEVTOOLS_URL = "http://localhost:13172/";
+var DEFAULT_TIMEOUT = 15e3;
+var HARD_TIMEOUT = 6e4;
+function screenshotDir() {
+  return (0, import_node_path6.resolve)(GetResourcePath(GetCurrentResourceName()), "dist", "screenshots");
+}
+function screenshotScript() {
+  return (0, import_node_path6.resolve)(GetResourcePath(GetCurrentResourceName()), "dist", "screenshot-nui.js");
+}
+function defaultOutputPath() {
+  const stamp = (/* @__PURE__ */ new Date()).toISOString().replaceAll(/[-:.TZ]/g, "").slice(0, 14);
+  return (0, import_node_path6.join)(screenshotDir(), `nui-${stamp}-${Math.floor(Math.random() * 1e6)}.png`);
+}
+var CaptureInput = external_exports.object({
+  outputPath: external_exports.string().optional(),
+  devtoolsUrl: external_exports.string().url().optional(),
+  timeoutMs: external_exports.number().int().min(1e3).max(HARD_TIMEOUT).optional()
+}).strict();
+function registerScreenshotNui() {
+  register({
+    name: "screenshot_nui",
+    description: "Capture the FiveM NUI through the CEF DevTools page (http://localhost:13172/). Workflow: 1) ensure the player has opted in and opened the resource UI, 2) call this tool, 3) Read the returned absolute PNG path (Claude can view PNGs via the Read tool), 4) call delete_screenshot to clean up. Requires the playwright package installed in the agent_api node_modules and `npx playwright install chromium` to have been run.",
+    input: CaptureInput,
+    handler: async (input) => {
+      const script = screenshotScript();
+      if (!(0, import_node_fs5.existsSync)(script)) {
+        return err(
+          "INTERNAL",
+          `screenshot-nui.js missing \u2014 run \`npm run build\`. Expected at ${script}`
+        );
+      }
+      const outputPath = input.outputPath ? (0, import_node_path6.resolve)(input.outputPath) : defaultOutputPath();
+      const devtoolsUrl = input.devtoolsUrl ?? DEFAULT_DEVTOOLS_URL;
+      const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT;
+      return new Promise((resolveTool) => {
+        var _a, _b, _c, _d;
+        const child = (0, import_node_child_process2.spawn)(
+          process.execPath ?? "node",
+          [script, outputPath, devtoolsUrl, String(timeoutMs)],
+          {
+            cwd: (0, import_node_path6.dirname)(script),
+            shell: false,
+            windowsHide: true,
+            stdio: ["ignore", "pipe", "pipe"]
+          }
+        );
+        let stdout = "";
+        let stderr = "";
+        (_a = child.stdout) == null ? void 0 : _a.setEncoding("utf8");
+        (_b = child.stderr) == null ? void 0 : _b.setEncoding("utf8");
+        (_c = child.stdout) == null ? void 0 : _c.on("data", (c) => {
+          stdout += c;
+        });
+        (_d = child.stderr) == null ? void 0 : _d.on("data", (c) => {
+          stderr += c;
+        });
+        const guard = setTimeout(() => {
+          child.kill("SIGTERM");
+        }, timeoutMs + 5e3);
+        child.on("error", (e) => {
+          clearTimeout(guard);
+          resolveTool(err("INTERNAL", `screenshot spawn failed: ${e.message}`));
+        });
+        child.on("close", (code) => {
+          clearTimeout(guard);
+          const lastLine = stdout.trim().split("\n").pop() ?? "";
+          let parsed = null;
+          try {
+            parsed = JSON.parse(lastLine);
+          } catch {
+          }
+          if (!parsed) {
+            resolveTool(
+              err("INTERNAL", `screenshot script returned no JSON (exit ${code}).`, {
+                stdout,
+                stderr
+              })
+            );
+            return;
+          }
+          if (!parsed.ok) {
+            resolveTool(err("INTERNAL", parsed.error ?? "screenshot failed", { stderr }));
+            return;
+          }
+          const stat = (0, import_node_fs5.existsSync)(parsed.path) ? (0, import_node_fs5.statSync)(parsed.path) : null;
+          resolveTool(
+            ok({
+              path: parsed.path,
+              bytes: parsed.bytes ?? (stat == null ? void 0 : stat.size) ?? 0,
+              devtoolsTarget: parsed.target,
+              hint: "Use the Read tool with `file_path` set to the returned `path` to view the PNG, then call delete_screenshot to clean up."
+            })
+          );
+        });
+      });
+    }
+  });
+  register({
+    name: "delete_screenshot",
+    description: "Remove a screenshot previously written by screenshot_nui. Only paths inside the agent_api dist/screenshots directory are accepted. Call this after viewing the file with the Read tool.",
+    input: external_exports.object({ path: external_exports.string().min(1) }).strict(),
+    handler: async (input) => {
+      const abs = (0, import_node_path6.resolve)(input.path);
+      const dir = screenshotDir();
+      if (!abs.startsWith(dir)) {
+        return err("PATH_OUTSIDE_SANDBOX", `Can only delete files inside ${dir}.`);
+      }
+      if (!(0, import_node_fs5.existsSync)(abs)) {
+        return ok({ deleted: false, path: abs, reason: "not found" });
+      }
+      try {
+        (0, import_node_fs5.unlinkSync)(abs);
+        return ok({ deleted: true, path: abs });
+      } catch (e) {
+        return err("INTERNAL", `delete failed: ${e.message}`);
+      }
+    }
+  });
+}
+
 // src/server/tools/runCommand.ts
 var Input4 = external_exports.object({
   command: external_exports.string().min(1),
@@ -7684,8 +7808,8 @@ function registerTailConsole() {
 }
 
 // src/server/fs/write.ts
-var import_node_fs5 = require("node:fs");
-var import_node_path6 = require("node:path");
+var import_node_fs6 = require("node:fs");
+var import_node_path7 = require("node:path");
 var WriteFileInput = external_exports.object({
   resource: external_exports.string().min(1),
   path: external_exports.string().min(1),
@@ -7711,14 +7835,14 @@ async function writeFile(input, ctx) {
   if (!extCheck.ok) return extCheck;
   let existed = true;
   try {
-    await import_node_fs5.promises.stat(resolved.data.absPath);
+    await import_node_fs6.promises.stat(resolved.data.absPath);
   } catch {
     existed = false;
   }
   if (input.createDirs) {
-    await import_node_fs5.promises.mkdir((0, import_node_path6.dirname)(resolved.data.absPath), { recursive: true });
+    await import_node_fs6.promises.mkdir((0, import_node_path7.dirname)(resolved.data.absPath), { recursive: true });
   }
-  await import_node_fs5.promises.writeFile(resolved.data.absPath, input.content, "utf8");
+  await import_node_fs6.promises.writeFile(resolved.data.absPath, input.content, "utf8");
   return ok({
     resource: input.resource,
     path: input.path,
@@ -8104,7 +8228,7 @@ var StateBag = class {
 // node_modules/@overextended/ox_lib/dist/common/misc.js
 var context = IsDuplicityVersion() ? "server" : "client";
 function sleep3(ms) {
-  return new Promise((resolve3) => setTimeout(resolve3, ms, null));
+  return new Promise((resolve4) => setTimeout(resolve4, ms, null));
 }
 async function waitFor(cb, errMessage, timeout) {
   let value = await cb();
@@ -8114,12 +8238,12 @@ async function waitFor(cb, errMessage, timeout) {
   }
   const start = GetGameTimer();
   let id;
-  return new Promise((resolve3, reject) => {
+  return new Promise((resolve4, reject) => {
     id = setTick(async () => {
       const elapsed = timeout && GetGameTimer() - start;
       if (elapsed && elapsed > timeout) return reject(`${errMessage || "failed to resolve callback"} (waited ${elapsed}ms)`);
       value = await cb();
-      if (value !== void 0) resolve3(value);
+      if (value !== void 0) resolve4(value);
     });
   }).finally(() => clearTick(id));
 }
@@ -9704,10 +9828,10 @@ init_cache();
 var pendingCallbacks2 = {};
 var callbackTimeout2 = GetConvarInt("ox:callbackTimeout", 3e5);
 onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
-  const resolve3 = pendingCallbacks2[key];
-  if (!resolve3) return;
+  const resolve4 = pendingCallbacks2[key];
+  if (!resolve4) return;
   delete pendingCallbacks2[key];
-  resolve3(...args);
+  resolve4(...args);
 });
 function triggerClientCallback(eventName, playerId, ...args) {
   let key;
@@ -9716,10 +9840,10 @@ function triggerClientCallback(eventName, playerId, ...args) {
   while (pendingCallbacks2[key]);
   emitNet(`ox_lib:validateCallback`, playerId, eventName, cache.resource, key);
   emitNet(`__ox_cb_${eventName}`, playerId, cache.resource, key, ...args);
-  return new Promise((resolve3, reject) => {
+  return new Promise((resolve4, reject) => {
     pendingCallbacks2[key] = (args2) => {
       if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
-      resolve3(args2);
+      resolve4(args2);
     };
     setTimeout(reject, callbackTimeout2, `callback event '${key}' timed out`);
   });
@@ -10363,6 +10487,26 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 ---
 
+## UI testing flow (only if UI was scaffolded and the user asks to verify or iterate)
+
+When the task involves checking or iterating on the UI's visual state \u2014 including phrases like "\u0E25\u0E2D\u0E07\u0E14\u0E39 UI", "\u0E40\u0E17\u0E2A UI", "check the look", "does it render", "screenshot it", or any iteration after a UI edit \u2014 execute this loop. Never skip steps.
+
+1. **Tell the user to opt in as a test subject themselves** in chat: \`/agent_test_optin\`. Wait for them to confirm they did it. Then read their serverId via \`list_players\`.
+
+2. **Tell the user to open the resource UI on the client** (e.g. press F6 or type the resource's open command). Wait for confirmation; the FiveM CEF DevTools index at \`http://localhost:13172/\` won't expose an \`<a>\` until the NUI surface is live.
+
+3. **Capture**: call \`screenshot_nui({})\`. The tool will:
+   - hit the CEF DevTools index
+   - follow the first \`<a>\` (the only live NUI surface)
+   - take a full-page screenshot
+   - return an absolute PNG path under \`agent_api/dist/screenshots/\`
+
+4. **View the screenshot** using the Read tool (Claude can view PNGs directly). Describe what you see and decide whether the UI matches the spec.
+
+5. **Clean up immediately** with \`delete_screenshot({ path })\` even if you took multiple captures. Never leave a screenshot behind.
+
+6. If a fix is needed, write the file edit and \`restart_resource\` for the target resource, then ask the user to reopen the UI and loop back to step 3.
+
 ## Scaffolding phase (only after confirmed)
 
 1. Call \`create_resource({ name, description, author })\`.
@@ -10443,6 +10587,7 @@ function main() {
   registerServerCallNative();
   registerServerListNatives();
   registerRunShell();
+  registerScreenshotNui();
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
   registerPrompt(scaffoldFivemPrompt);
