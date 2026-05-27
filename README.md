@@ -11,6 +11,7 @@ FiveM resource that exposes a safe, local **MCP** (Model Context Protocol) tool 
 - Live player testing via opt-in chat command + client-side probes
 - **Dynamic client-native dispatch** — agent can call any FiveM client native on an opted-in player
 - Bundled framework bridges: **ESX**, **ox_lib**, **oxmysql** (with reflective method dispatch)
+- **Dashboard-taught preferences + custom skills** — teach the agent your structure / coding / ui-design conventions, and upload skills that auto-inject on the tool calls you choose
 - HTTP MCP transport (Claude Code talks directly) + stdio shim for other clients
 
 > Single resource. No external sidecar. Drop folder → ensure → ready.
@@ -154,6 +155,13 @@ All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, er
 | `delete_screenshot`   | Remove a screenshot under `dist/screenshots/` (sandboxed)                 |
 | `scaffold_fivem_resource_workflow` | **Mandatory pre-flight** for new-resource intent — returns the grill workflow the agent must complete before scaffolding. Also exposed as the MCP prompt `scaffold-fivem-resource` |
 
+### Preferences & custom skills (2)
+
+| Tool                  | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `list_preferences`    | The user's saved development preferences (structure / coding / ui-design) + the example folder each points at. The grill workflow calls this first; a reminder is auto-injected into `write_file` / `create_resource` / `run_shell` / scaffold results |
+| `list_skills`         | User-uploaded custom skills with their trigger tools/categories and markdown body. A matching skill is auto-injected into the result of any tool call it's bound to |
+
 #### Opt-in flow
 
 The player joins the server and types in chat:
@@ -226,6 +234,8 @@ http://127.0.0.1:30120/agent_api/dashboard
 
 - First visit with no users → **signup**; the first account becomes the **master**. Signup then closes — the master creates every other account from the Users tab.
 - The **Permissions** tab edits the sandbox convars (readonly, write/control roots, rate limit, native blocklists, shell allowlist, plugin gates) **live** — `SetConvar` + a config reload, persisted to `dist/permissions.json`, re-applied at boot. No restart needed.
+- The **Preferences** tab (master only) teaches the agent how you like resources built — `structure` / `coding` / `ui-design` items, each with a description and an optional example folder picked through a sandboxed folder browser. Persisted to `dist/preferences.json`; surfaced via `list_preferences` + auto-injection.
+- The **Skills** tab (master only) uploads custom markdown skills and binds them to MCP actions by tool name and/or category; the skill body is injected into matching tool results. Persisted to `dist/skills.json` + `dist/skills/<id>.md`.
 - Separate from the agent token: dashboard accounts are scrypt-hashed in `dist/users.json`, 12h sessions.
 
 The UI is a Vite + Vue 3 project under `dashboard/`, built to a single committed `dist/dashboard/index.html`. See [`docs/guide/dashboard`](https://mysbryce.github.io/5m-mcp/docs/guide/dashboard).

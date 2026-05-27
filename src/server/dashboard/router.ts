@@ -13,6 +13,9 @@ import {
 } from './users';
 import { createSession, destroySession, destroyUserSessions, getSessionUserId } from './sessions';
 import { PERMISSIONS, applyUpdates, currentValues } from './permissions';
+import { deletePreference, listPreferences, upsertPreference } from './preferences';
+import { availableTriggers, deleteSkill, listSkills, upsertSkill } from './skills';
+import { listResourcesForBrowse, listSubdirs } from './fsbrowse';
 
 type Reply = {
   status: number;
@@ -140,6 +143,71 @@ export async function handleDashboard(
       if (!result.ok) return json(400, { error: result.reason });
       destroyUserSessions(id);
       return json(200, { ok: true });
+    }
+  }
+
+  // --- master only: preferences / skills / folder browse ---
+  if (
+    sub.startsWith('/api/preferences') ||
+    sub.startsWith('/api/skills') ||
+    sub.startsWith('/api/fs')
+  ) {
+    if (user.role !== 'master') return json(403, { error: 'Master only.' });
+
+    if (sub === '/api/preferences' && method === 'GET') {
+      return json(200, { preferences: listPreferences() });
+    }
+    if (sub === '/api/preferences' && method === 'POST') {
+      const result = upsertPreference({
+        id: typeof parsed.id === 'string' ? parsed.id : undefined,
+        type: String(parsed.type ?? ''),
+        description: String(parsed.description ?? ''),
+        exampleResource: parsed.exampleResource ? String(parsed.exampleResource) : undefined,
+        examplePath: parsed.examplePath ? String(parsed.examplePath) : undefined,
+        enabled: parsed.enabled !== false,
+      });
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, { preference: result.preference });
+    }
+    const prefDel = sub.match(/^\/api\/preferences\/([a-f0-9]+)$/);
+    if (prefDel && method === 'DELETE') {
+      const result = deletePreference(prefDel[1]!);
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, { ok: true });
+    }
+
+    if (sub === '/api/skills/triggers' && method === 'GET') {
+      return json(200, availableTriggers());
+    }
+    if (sub === '/api/skills' && method === 'GET') {
+      return json(200, { skills: listSkills() });
+    }
+    if (sub === '/api/skills' && method === 'POST') {
+      const result = upsertSkill({
+        id: typeof parsed.id === 'string' ? parsed.id : undefined,
+        name: String(parsed.name ?? ''),
+        description: parsed.description ? String(parsed.description) : '',
+        body: String(parsed.body ?? ''),
+        triggers: parsed.triggers,
+        enabled: parsed.enabled !== false,
+      });
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, { skill: result.skill });
+    }
+    const skillDel = sub.match(/^\/api\/skills\/([a-f0-9]+)$/);
+    if (skillDel && method === 'DELETE') {
+      const result = deleteSkill(skillDel[1]!);
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, { ok: true });
+    }
+
+    if (sub === '/api/fs/resources' && method === 'GET') {
+      return json(200, { resources: listResourcesForBrowse() });
+    }
+    if (sub === '/api/fs/list' && method === 'POST') {
+      const result = listSubdirs(String(parsed.resource ?? ''), String(parsed.sub ?? ''));
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, result);
     }
   }
 

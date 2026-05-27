@@ -2,9 +2,10 @@ import { JsonRpcRequest, JsonRpcResponse, RpcErrorCode, rpcError, rpcSuccess } f
 import { dispatch, listToolDescriptors } from '../tools/registry';
 import { ToolContext } from '../tools/context';
 import { getPrompt, listPrompts } from './prompts';
+import { injectedTexts } from '../dashboard/inject';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.1.4' };
+const SERVER_INFO = { name: 'agent_api', version: '0.2.0' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 
@@ -56,15 +57,16 @@ export async function handleMcpRequest(
         return rpcError(id, RpcErrorCode.INVALID_PARAMS, 'Missing tool name.');
       }
       const envelope = await dispatch(req.params.name, req.params.arguments ?? {}, ctx);
-      return rpcSuccess(id, {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(envelope.ok ? envelope.data : envelope.error),
-          },
-        ],
-        isError: !envelope.ok,
-      });
+      const content: Array<{ type: 'text'; text: string }> = [
+        {
+          type: 'text',
+          text: JSON.stringify(envelope.ok ? envelope.data : envelope.error),
+        },
+      ];
+      if (envelope.ok) {
+        for (const text of injectedTexts(req.params.name)) content.push({ type: 'text', text });
+      }
+      return rpcSuccess(id, { content, isError: !envelope.ok });
     }
 
     case 'prompts/list':

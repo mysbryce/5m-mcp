@@ -20,3 +20,40 @@ export interface PermDescriptor {
 }
 
 export type PermValues = Record<string, string>;
+
+export type PreferenceType = 'structure' | 'coding' | 'ui-design';
+
+export interface Preference {
+  id: string;
+  type: PreferenceType;
+  description: string;
+  exampleResource?: string;
+  examplePath?: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface SkillTriggers {
+  tools: string[];
+  categories: string[];
+}
+
+export interface CustomSkill {
+  id: string;
+  name: string;
+  description: string;
+  triggers: SkillTriggers;
+  enabled: boolean;
+  createdAt: string;
+  body: string;
+}
+
+export interface TriggerCatalog {
+  tools: string[];
+  categories: string[];
+}
+
+export interface BrowseResource {
+  name: string;
+  state: string;
+}

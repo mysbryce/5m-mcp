@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] — 2026-05-27
+
+### Added
+
+- **Dashboard "Preferences" tab** (master only) — teach the agent how you like
+  resources built, tagged `structure` / `coding` / `ui-design`, each with a
+  free-text description and an optional example folder picked through a
+  server-backed, sandboxed folder browser. Stored in `dist/preferences.json`
+  (file-backed, not hardcoded). New MCP tool `list_preferences` exposes them, and
+  a reminder is auto-injected into `write_file` / `create_resource` /
+  `scaffold_fivem_resource_workflow` / `run_shell` results so the agent mirrors
+  them (Lua AND UI).
+- **Dashboard "Skills" tab** (master only) — upload a custom markdown skill (paste
+  or `.md` file) and bind it to MCP actions by **tool name and/or category**
+  (write / lifecycle / scaffold / ui / native / player / shell / plugin). When a
+  bound tool runs, the skill body is injected into the result. Stored in
+  `dist/skills.json` + `dist/skills/<id>.md`. New MCP tool `list_skills`.
+- Dashboard folder-browse + preference/skill REST APIs under
+  `/agent_api/dashboard/api/*` (master-gated); EN + TH locale strings for both
+  new tabs.
+
+### Changed
+
+- **Grill workflow** (`scaffold-fivem-resource`) now calls `list_preferences`
+  first and folds preferences into its recommendations, **skips questions the
+  user already answered/decided** (confirms instead of re-asking), enforces
+  lettered A/B/C/D options with a Recommended pick, and asks its own clarifying
+  questions when intent is unclear instead of blindly following the script.
+- **Much broader file-extension allowlist** out of the box, and `read_file` now
+  shares the (large) write allowlist instead of a tiny 9-extension read set — so
+  `.svelte` / `.vue` / `.scss` / `.mdx` / `.graphql` / `.sql` / shell scripts /
+  most tool dotfiles can be read as well as written. `agent_api_extra_write_extensions`
+  still extends both read and write.
+
 ## [0.1.4] — 2026-05-27
 
 ### Changed

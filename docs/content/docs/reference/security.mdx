@@ -16,7 +16,7 @@ description: The 16 defence layers that keep one mistake from being catastrophic
 | 5 — zod schema | Per-tool `.strict()` schema | Unknown fields, wrong types |
 | 6 — Readonly mode | `agent_api_readonly=true` blocks every mutating tool | Production lock-down |
 | 7 — Path sandbox | `sandbox.ts` + per-tool checks | `..`, absolute paths, `txData/.env/database/cache` segments, writes outside configured roots |
-| 8 — Extension allowlist | `WRITE_EXTENSIONS` set | Writing `.exe`, `.sh`, binary blobs |
+| 8 — Extension allowlist | broad text-file set in `sandbox.ts` (read shares the write set) | Writing/reading `.exe`, `.dll`, binary blobs |
 | 9 — Verb allowlist | `parseAllowedCommand` for `run_command` | Banned console verbs (`quit`, `exec`, `add_ace`, `rcon_password`, …) |
 | 10 — ACE | FiveM's own ACL on `command.*` | Agent calling lifecycle verbs without server permission |
 | 11 — Per-resource lock | `withLock(name, fn)` | Two mutators racing on the same resource |

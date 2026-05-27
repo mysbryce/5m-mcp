@@ -32,7 +32,11 @@ The intent-detection path works in every client. The slash-command path is Claud
 
 ## What the agent will do
 
-It cannot skip steps — its mandatory contract is loaded into context. Question tree in order:
+It cannot skip steps — its mandatory contract is loaded into context.
+
+**Step 0 — preferences first.** Before the tree, the agent calls [`list_preferences`](/docs/reference/tools). For every saved preference (`structure` / `coding` / `ui-design`) it asks, one at a time, whether to adopt it as the guideline for this resource — and biases the rest of its recommendations toward the ones you accept. Set these up in the dashboard [Preferences tab](/docs/guide/dashboard).
+
+The agent also reviews the conversation and **skips questions you've already answered** (confirming instead of re-asking). Question tree in order:
 
 1. **Identity** — name, description, author
 2. **Layout** — one file vs multi-file with `server/`, `client/`, `shared/`, `config/` subfolders. Flat layouts forbidden.
@@ -54,7 +58,7 @@ It cannot skip steps — its mandatory contract is loaded into context. Question
 18. **Lifecycle** — start, playerDropped, stop behaviour
 19. **Audit + rate limit** — what to log, what to throttle
 
-Every question carries a "Recommended:" line so you can type "ok" / "เอา" and move on. To revise a decision before the agent starts writing, say `edit <number>`.
+Every question carries lettered options (A / B / C / D …) and a "Recommended:" line, so you can reply with just a letter or "ok" / "เอา" and move on. Before it builds, the agent replays everything as a **numbered** summary; to revise a decision, say `edit <number>` referring to that line.
 
 ## Then it builds
 

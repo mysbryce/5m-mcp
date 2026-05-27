@@ -45,6 +45,31 @@ Booleans render as toggles, enums as selects, CSV/int as text fields. Editing on
 
 See [Configuration](/docs/guide/configuration) for what each convar does.
 
+## Preferences tab (master only)
+
+Teach the agent **how you like resources built** so its output stays consistent with your conventions — across Lua *and* UI. Each preference is one of three types:
+
+| Type | What it guides |
+| --- | --- |
+| `structure` | File / folder layout |
+| `coding` | Code style & patterns |
+| `ui-design` | UI stack & visual style |
+
+Each item has a free-text description and an **optional example folder**, picked through a server-backed, read-only folder browser (list resources → drill into subfolders, sandbox-checked — it never reads file contents, only directory names). Toggle items on/off, edit, or delete.
+
+Preferences are file-backed in `dist/preferences.json` (not hardcoded) and reach the agent two ways:
+
+1. The MCP tool **`list_preferences`** returns every enabled preference plus instructions to read the referenced example folders and mirror them.
+2. A compact reminder is **auto-injected** into the results of `write_file`, `create_resource`, `scaffold_fivem_resource_workflow`, and `run_shell`, so the agent never forgets to check them.
+
+The [scaffold grill](/docs/guide/scaffold) calls `list_preferences` first and asks, per type, whether to adopt your preference as the guideline for the new resource.
+
+## Skills tab (master only)
+
+Upload your own **custom skill** (write markdown inline or upload a `.md` file) and bind it to the MCP actions that should trigger it — by **tool name** (e.g. `write_file`), by **category** (`write`, `lifecycle`, `scaffold`, `ui`, `native`, `player`, `shell`, `plugin`), or both. When a bound tool runs, the skill's body is injected into that tool's result as an `APPLIED SKILL` block, so the agent follows it in context.
+
+Skills are file-backed: metadata in `dist/skills.json`, each body in `dist/skills/<id>.md`. The MCP tool **`list_skills`** returns them for inspection, but you rarely need it — binding + auto-injection is the intended path.
+
 ## Relationship to `server.cfg`
 
 Convars set in `server.cfg` are the boot defaults. The dashboard layers `dist/permissions.json` on top of them at startup. If you set the same convar in both, the dashboard override wins (it's applied after the cfg is read, and again on every save). To reset to your `server.cfg` baseline, delete `dist/permissions.json` and restart.

@@ -7,6 +7,7 @@ import { handleMcpRequest } from '../mcp/server';
 import { RpcErrorCode, isJsonRpcRequest, rpcError } from '../mcp/jsonrpc';
 import { TokenBucket } from '../runtime/rateLimit';
 import { handleDashboard } from '../dashboard/router';
+import { injectedTexts } from '../dashboard/inject';
 
 type FivemReq = {
   address: string;
@@ -222,7 +223,8 @@ export function installHttpRouter(deps: RouterDeps): void {
         result_code: envelope.ok ? 'OK' : envelope.error.code,
         caller: hashToken(supplied ?? ''),
       });
-      reply(res, statusFor(envelope), envelope);
+      const injected = envelope.ok ? injectedTexts(toolName) : [];
+      reply(res, statusFor(envelope), injected.length ? { ...envelope, injected } : envelope);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.error(`[${GetCurrentResourceName()}] router error:`, message);

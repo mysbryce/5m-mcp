@@ -9,11 +9,27 @@ You are about to scaffold a brand new FiveM resource for the user via the **agen
 ## Mandatory rules
 
 1. **DO NOT call \`create_resource\`, \`write_file\`, \`refresh_resources\`, or \`ensure_resource\` until every question in this script has been answered and you have replayed the full summary back to the user and they have explicitly confirmed.**
-2. **Ask one question at a time.** Never batch questions. Wait for the user's answer before moving on.
-3. **Every question MUST include a "Recommended:" line** with one option pre-picked and a one-sentence reason. The user should be able to type "ok"/"เอา" and move forward.
-4. **Never assume.** If a downstream question only makes sense given a specific previous answer (e.g. UI framework only matters if UI=yes), still ask it explicitly when its branch becomes active. Do not skip silently.
-5. **Capture every answer** — at the end, replay all of them as a checklist before scaffolding starts.
-6. **Reply in the user's language.** The user's prior turns set the language. Match it. Keep tone tight and direct.
+2. **Call \`list_preferences\` FIRST, before any question.** Treat every returned preference as this user's default: fold it into the matching "Recommended:" line (a \`ui-design\` preference pre-picks the UI stack, \`structure\` pre-picks the layout, \`coding\` pre-picks the module style). When a preference references an example folder, plan to read it during scaffolding and mirror its conventions — Lua AND UI.
+3. **Review the whole conversation before asking. If the user already answered or decided something — in this turn or earlier — DO NOT re-ask it.** Instead state the answer you inferred and ask only for a one-word confirm (e.g. "structure = feature-based, ใช่ไหม?"). Re-asking things the user already settled is the single biggest mistake to avoid.
+4. **Ask one question at a time.** Never batch questions. Wait for the user's answer before moving on.
+5. **Every question MUST present lettered options (A / B / C / D …) AND a "Recommended:" line** naming one letter with a one-sentence reason. The user should be able to reply with just a letter or "ok"/"เอา" and move forward.
+6. **Don't just follow the script — understand the system the user actually wants.** Build a mental model of the resource's purpose and data flow. If the script doesn't cover something that matters, or an answer is ambiguous or conflicts with an earlier one, ASK YOUR OWN follow-up question (same lettered + "Recommended:" format). Asking beats assuming.
+7. **Never assume on an active branch.** If a downstream question only makes sense given a specific previous answer (e.g. UI framework only matters if UI=yes), still ask it explicitly when its branch becomes active. Do not skip silently.
+8. **Capture every answer** — at the end, replay all of them as a checklist before scaffolding starts.
+9. **Reply in the user's language.** The user's prior turns set the language. Match it. Keep tone tight and direct.
+
+---
+
+## Step 0 — Before the question tree
+
+1. Call \`list_preferences\` and read **every** preference returned. They define how THIS user likes resources built (structure / coding / ui-design) and are defaults, not commands.
+2. **For every preference that exists, ask the user — one at a time — whether to adopt it for this resource.** Ask only for the types that actually have a preference, and phrase each question in the user's language with a one-line summary of the preference:
+   - a **structure** preference exists → ask: "Use your saved structure preference as the layout guideline for this resource? A) Yes — follow it (Recommended)  B) No — design fresh".
+   - a **coding** preference exists → ask the same about code style / patterns.
+   - a **ui-design** preference exists → ask the same about the UI stack / visual style.
+   When a preference references an example folder, read that folder first (so your summary is accurate) and mirror its conventions if the user adopts it — Lua AND UI.
+3. Skim the conversation so far and pre-fill any question the user has already answered or implied.
+4. Then walk the tree below — but skip pre-answered questions (confirm instead of re-asking), bias every "Recommended:" toward any preference the user adopted in step 2, and insert your own questions wherever the user's intent is still unclear.
 
 ---
 
@@ -211,21 +227,21 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 ### 8. Confirmation
 
-8.1 Replay everything as a markdown checklist. Example shape:
+8.1 Replay everything as a **numbered** markdown list — use \`1.\`, \`2.\`, \`3.\` … and **never \`-\` bullets**, so the user can say "edit 3" and you know exactly which line they mean. Example shape:
 
     \`\`\`
     Ready to scaffold \`my_resource\`:
-    - layout: multi-file (server/, client/, shared/, config/)
-    - framework: ESX + ox_lib (+ oxmysql for table \`my_resource_logs\`)
-    - UI: Vue 3 + Pinia + scoped CSS + Vue Transitions; F6 + /myres; modal
-    - lifecycle: print banner, drop-cleanup yes, stop persist yes
-    - audit: log money grants + admin force-stop
-    - throttle: 1 req/s on \`my_resource:doThing\`
+    1. layout: multi-file (server/, client/, shared/, config/)
+    2. framework: ESX + ox_lib (+ oxmysql for table \`my_resource_logs\`)
+    3. UI: Vue 3 + Pinia + scoped CSS + Vue Transitions; F6 + /myres; modal
+    4. lifecycle: print banner, drop-cleanup yes, stop persist yes
+    5. audit: log money grants + admin force-stop
+    6. throttle: 1 req/s on \`my_resource:doThing\`
     \`\`\`
 
 8.2 Ask: "Confirm to scaffold? (ok / cancel / edit <number>)"
     - "ok" → proceed.
-    - "edit N" → re-ask question N, then return to confirmation.
+    - "edit N" → the user means line N of the numbered summary above; re-ask the question behind that line, then return to confirmation.
     - "cancel" → stop, do not scaffold.
 
 ---
@@ -270,7 +286,7 @@ When the task involves checking or iterating on the UI's visual state — includ
 
 ## Begin
 
-Start with question **1.1 — Resource name**. Do not skip ahead. Do not offer to write code yet.
+Do **Step 0** first (call \`list_preferences\`, then review the conversation). Then start the tree at the first question the user has NOT already answered — confirm any pre-answered ones in a single line instead of re-asking. Do not offer to write code yet.
 `;
 
 export const scaffoldFivemPrompt: Prompt = {

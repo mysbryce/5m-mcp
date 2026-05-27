@@ -38,9 +38,11 @@ import { registerListPlugins, setPluginSnapshot } from './tools/plugins';
 import { registerPrompt } from './mcp/prompts';
 import { scaffoldFivemPrompt } from './mcp/prompts/scaffoldFivem';
 import { registerScaffoldFivemWorkflow } from './tools/scaffoldWorkflow';
+import { registerListPreferences } from './tools/preferences';
+import { registerListSkills } from './tools/skills';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.1.4';
+const VERSION = '0.2.0';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -86,6 +88,8 @@ function main(): void {
 
   registerPrompt(scaffoldFivemPrompt);
   registerScaffoldFivemWorkflow();
+  registerListPreferences();
+  registerListSkills();
 
   registerListPlugins();
   const pluginSnapshot = loadPlugins(ALL_PLUGINS, convars);

@@ -5,50 +5,97 @@ import { getResourceInfo } from '../runtime/resources';
 const DEFAULT_WRITE_EXTENSIONS = new Set([
   // FiveM runtime
   '.lua',
+  '.luau',
   '.cfg',
   // JS / TS family
   '.js',
   '.mjs',
   '.cjs',
   '.ts',
+  '.mts',
+  '.cts',
   '.tsx',
   '.jsx',
-  // Web frameworks
+  // Web framework single-file components
   '.vue',
   '.svelte',
   '.astro',
+  // Templating
+  '.hbs',
+  '.handlebars',
+  '.ejs',
+  '.pug',
+  '.njk',
+  '.mustache',
+  '.liquid',
   // Styles
   '.css',
   '.scss',
   '.sass',
   '.less',
   '.styl',
+  '.stylus',
   '.postcss',
+  '.pcss',
   // Markup / docs
   '.html',
   '.htm',
+  '.xhtml',
   '.md',
+  '.mdx',
+  '.markdown',
   '.txt',
+  '.rst',
+  '.adoc',
   // Data / config
   '.json',
   '.jsonc',
+  '.json5',
+  '.ndjson',
   '.yaml',
   '.yml',
   '.toml',
+  '.ini',
+  '.conf',
+  '.properties',
   '.xml',
   '.csv',
+  '.tsv',
   '.env',
   '.example',
-  // Tool dotfiles (filename "foo.gitignore" style)
+  '.lock',
+  '.webmanifest',
+  // Query / schema
+  '.graphql',
+  '.gql',
+  '.prisma',
+  '.proto',
+  '.sql',
+  // Shell / scripts
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.fish',
+  '.ps1',
+  '.psm1',
+  '.bat',
+  '.cmd',
+  // Tool dotfiles (filename "foo.gitignore" style → ext is ".gitignore")
   '.gitignore',
   '.gitattributes',
+  '.gitkeep',
   '.editorconfig',
   '.npmrc',
   '.nvmrc',
+  '.yarnrc',
+  '.babelrc',
+  '.browserslistrc',
   '.prettierrc',
+  '.prettierignore',
   '.eslintrc',
   '.eslintignore',
-  '.prettierignore',
+  '.stylelintrc',
+  '.dockerignore',
   // Vector assets (text)
   '.svg',
 ]);
@@ -79,17 +126,6 @@ function lowerNorm(p: string): string {
 }
 
 const BLOCKED_SEGMENTS = new Set(['.env', 'txdata', 'database', 'cache']);
-const ALLOWED_EXTENSIONS = new Set([
-  '.lua',
-  '.js',
-  '.ts',
-  '.json',
-  '.cfg',
-  '.md',
-  '.html',
-  '.css',
-  '.txt',
-]);
 
 function lowerExt(p: string): string {
   const i = p.lastIndexOf('.');
@@ -154,9 +190,12 @@ export function resolveResourcePath(
 
 export function checkReadExtension(absPath: string): Envelope<true> {
   const ext = lowerExt(absPath);
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
+  // Reads share the (broad) write allowlist + the extra-extensions convar:
+  // if the agent may write a text type, it may also read it.
+  const allowed = writeExtensions();
+  if (!allowed.has(ext)) {
     return err('EXTENSION_NOT_ALLOWED', `Extension not allowed: ${ext}`, {
-      allowed: [...ALLOWED_EXTENSIONS],
+      allowed: [...allowed],
     });
   }
   return ok(true);

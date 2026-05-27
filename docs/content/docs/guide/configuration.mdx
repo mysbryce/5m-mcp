@@ -38,7 +38,7 @@ set agent_api_rate_per_minute             120
 | --- | --- | --- |
 | `agent_api_console_buffer_lines` | `2000` | size of the in-memory ring buffer used by `tail_console` |
 | `agent_api_max_file_bytes` | `2_097_152` | hard cap on `read_file` / `write_file` |
-| `agent_api_extra_write_extensions` | (none) | append extensions to the writable allowlist (csv, with or without the leading `.`) |
+| `agent_api_extra_write_extensions` | (none) | append extensions to the read + write allowlist (csv, with or without the leading `.`) |
 | `agent_api_rate_per_minute` | `120` | token-bucket cap per `x-agent-token` hash; over → `429 RATE_LIMITED` |
 
 ## Live client testing

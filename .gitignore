@@ -4,6 +4,9 @@ dist/audit.log
 dist/screenshots/
 dist/users.json
 dist/permissions.json
+dist/preferences.json
+dist/skills.json
+dist/skills/
 out/
 docs/.next/
 docs/.source/

@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue';
 import TopBar from './app/TopBar.vue';
 import AuthView from './features/auth/AuthView.vue';
 import PermissionsView from './features/permissions/PermissionsView.vue';
+import PreferencesView from './features/preferences/PreferencesView.vue';
+import SkillsView from './features/skills/SkillsView.vue';
 import UsersView from './features/users/UsersView.vue';
 import { useAuth } from './features/auth/useAuth';
 import { useI18n } from './i18n/useI18n';
@@ -10,7 +12,7 @@ import { useI18n } from './i18n/useI18n';
 const { me, ready, boot, logout } = useAuth();
 const { t } = useI18n();
 
-type Tab = 'permissions' | 'users';
+type Tab = 'permissions' | 'preferences' | 'skills' | 'users';
 const tab = ref<Tab>('permissions');
 
 onMounted(boot);
@@ -29,17 +31,26 @@ onMounted(boot);
         <button class="tab" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">
           {{ t('tabs.permissions') }}
         </button>
-        <button
-          v-if="me.role === 'master'"
-          class="tab"
-          :class="{ active: tab === 'users' }"
-          @click="tab = 'users'"
-        >
-          {{ t('tabs.users') }}
-        </button>
+        <template v-if="me.role === 'master'">
+          <button
+            class="tab"
+            :class="{ active: tab === 'preferences' }"
+            @click="tab = 'preferences'"
+          >
+            {{ t('tabs.preferences') }}
+          </button>
+          <button class="tab" :class="{ active: tab === 'skills' }" @click="tab = 'skills'">
+            {{ t('tabs.skills') }}
+          </button>
+          <button class="tab" :class="{ active: tab === 'users' }" @click="tab = 'users'">
+            {{ t('tabs.users') }}
+          </button>
+        </template>
       </nav>
 
       <PermissionsView v-if="tab === 'permissions'" />
+      <PreferencesView v-else-if="tab === 'preferences' && me.role === 'master'" />
+      <SkillsView v-else-if="tab === 'skills' && me.role === 'master'" />
       <UsersView v-else-if="tab === 'users' && me.role === 'master'" />
     </div>
   </main>

@@ -3,7 +3,7 @@ game 'common'
 
 author 'agent'
 description 'Local MCP tool surface for agentic FiveM resource development'
-version '0.1.4'
+version '0.2.0'
 
 server_scripts {
   'dist/server.js',
