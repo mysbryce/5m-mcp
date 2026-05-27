@@ -13,10 +13,6 @@ client_scripts {
   'dist/client.js',
 }
 
-files {
-  'dist/.agent_token',
-}
-
 convar_category 'agent_api' {
   'agent_api',
   {

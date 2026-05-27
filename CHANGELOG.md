@@ -15,6 +15,14 @@ All notable changes to this project will be documented in this file.
   trust, `load`/`ExecuteCommand`, SQL injection, over-broad exports, and leaked
   secrets; ends with a severity-ranked fix list.
 
+### Security
+
+- **Removed `dist/.agent_token` from the fxmanifest `files {}` block.** Listing it
+  there exposed the agent token to clients (fetchable via `cfx-nui-agent_api/...`
+  or a resource dump). The server reads the token from disk via `GetResourcePath`,
+  so it never needed to be a client-streamed file. **If a server ran with the old
+  manifest, rotate the token: `rm dist/.agent_token && restart agent_api`.**
+
 ## [0.6.1] — 2026-05-28
 
 ### Fixed

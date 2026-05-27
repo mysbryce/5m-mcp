@@ -28,7 +28,7 @@ description: The 16 defence layers that keep one mistake from being catastrophic
 
 ## Token handling
 
-- **Storage.** `dist/.agent_token`, mode `0600` on POSIX. Gitignored.
+- **Storage.** `dist/.agent_token`, mode `0600` on POSIX. Gitignored. It is **never** listed in the fxmanifest `files {}` block — doing so would stream it to every client (`cfx-nui-agent_api/...`); the server reads it from disk via `GetResourcePath`, so it never needs to be a client file.
 - **In transit.** `x-agent-token` header. We do not log the full token anywhere — the audit log records `sha256(token).slice(0, 12)` only.
 - **Rotation.** `rm dist/.agent_token && restart agent_api`. The console prints a new MCP config block with the new token.
 
