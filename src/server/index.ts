@@ -25,6 +25,7 @@ import {
 } from './tools/players';
 import { registerClientCallNative, registerClientListNatives } from './tools/clientNative';
 import { registerServerCallNative, registerServerListNatives } from './tools/serverNative';
+import { registerRunShell } from './tools/runShell';
 import { registerRunCommand } from './tools/runCommand';
 import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
@@ -72,6 +73,7 @@ function main(): void {
   registerClientListNatives();
   registerServerCallNative();
   registerServerListNatives();
+  registerRunShell();
 
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();

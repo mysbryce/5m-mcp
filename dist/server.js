@@ -99,10 +99,10 @@ function triggerServerCallback(eventName, delay, ...args) {
   while (pendingCallbacks[key]);
   emitNet(`ox_lib:validateCallback`, eventName, cache.resource, key);
   emitNet(`__ox_cb_${eventName}`, cache.resource, key, ...args);
-  return new Promise((resolve2, reject) => {
+  return new Promise((resolve3, reject) => {
     pendingCallbacks[key] = (args2) => {
       if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
-      resolve2(args2);
+      resolve3(args2);
     };
     setTimeout(reject, callbackTimeout, `callback event '${key}' timed out`);
   });
@@ -128,10 +128,10 @@ var init_callback = __esm({
     callbackTimeout = GetConvarInt("ox:callbackTimeout", 3e5);
     onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
       if (!source) return;
-      const resolve2 = pendingCallbacks[key];
-      if (!resolve2) return;
+      const resolve3 = pendingCallbacks[key];
+      if (!resolve3) return;
       delete pendingCallbacks[key];
-      resolve2(...args);
+      resolve3(...args);
     });
     eventTimers = {};
   }
@@ -371,11 +371,11 @@ var require_MySQL = __commonJS({
     var exp = global.exports.oxmysql;
     var currentResourceName = GetCurrentResourceName();
     function execute(method, query, params) {
-      return new Promise((resolve2, reject) => {
+      return new Promise((resolve3, reject) => {
         exp[method](query, params, (result, error) => {
           if (error)
             return reject(error);
-          resolve2(result);
+          resolve3(result);
         }, currentResourceName, true);
       });
     }
@@ -387,7 +387,7 @@ var require_MySQL = __commonJS({
       ready(callback) {
         setImmediate(async () => {
           while (GetResourceState("oxmysql") !== "started")
-            await new Promise((resolve2) => setTimeout(resolve2, 50, null));
+            await new Promise((resolve3) => setTimeout(resolve3, 50, null));
           callback();
         });
       },
@@ -6140,15 +6140,15 @@ var JSON_HEADERS = {
   "Cache-Control": "no-store"
 };
 function readBody(req) {
-  return new Promise((resolve2) => {
+  return new Promise((resolve3) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      resolve2("");
+      resolve3("");
       return;
     }
     try {
-      req.setDataHandler((data) => resolve2(data ?? ""));
+      req.setDataHandler((data) => resolve3(data ?? ""));
     } catch {
-      resolve2("");
+      resolve3("");
     }
   });
 }
@@ -6330,7 +6330,67 @@ function getResourceInfo(name) {
 }
 
 // src/server/fs/sandbox.ts
-var WRITE_EXTENSIONS = /* @__PURE__ */ new Set([".lua", ".js", ".ts", ".json", ".cfg", ".md", ".html", ".css"]);
+var DEFAULT_WRITE_EXTENSIONS = /* @__PURE__ */ new Set([
+  // FiveM runtime
+  ".lua",
+  ".cfg",
+  // JS / TS family
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  // Web frameworks
+  ".vue",
+  ".svelte",
+  ".astro",
+  // Styles
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".styl",
+  ".postcss",
+  // Markup / docs
+  ".html",
+  ".htm",
+  ".md",
+  ".txt",
+  // Data / config
+  ".json",
+  ".jsonc",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".xml",
+  ".csv",
+  ".env",
+  ".example",
+  // Tool dotfiles (filename "foo.gitignore" style)
+  ".gitignore",
+  ".gitattributes",
+  ".editorconfig",
+  ".npmrc",
+  ".nvmrc",
+  ".prettierrc",
+  ".eslintrc",
+  ".eslintignore",
+  ".prettierignore",
+  // Vector assets (text)
+  ".svg"
+]);
+function readExtraExtensions() {
+  const raw = GetConvar("agent_api_extra_write_extensions", "");
+  return new Set(
+    raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean).map((s) => s.startsWith(".") ? s : "." + s)
+  );
+}
+function writeExtensions() {
+  const out = new Set(DEFAULT_WRITE_EXTENSIONS);
+  for (const e of readExtraExtensions()) out.add(e);
+  return out;
+}
 function normalizeSlashes(p) {
   return p.replaceAll("\\", "/").replaceAll(/\/{2,}/g, "/");
 }
@@ -6403,9 +6463,10 @@ function checkReadExtension(absPath) {
 }
 function checkWriteExtension(absPath) {
   const ext = lowerExt(absPath);
-  if (!WRITE_EXTENSIONS.has(ext)) {
+  const allowed = writeExtensions();
+  if (!allowed.has(ext)) {
     return err("EXTENSION_NOT_ALLOWED", `Write extension not allowed: ${ext}`, {
-      allowed: [...WRITE_EXTENSIONS]
+      allowed: [...allowed]
     });
   }
   return ok(true);
@@ -6966,16 +7027,16 @@ async function callProbe(serverId, name, args, timeoutMs) {
 }
 async function callRemote(serverId, event, args, timeoutMs, label) {
   const probeId = (0, import_node_crypto3.randomBytes)(8).toString("hex");
-  return new Promise((resolve2) => {
+  return new Promise((resolve3) => {
     const timer = setTimeout(() => {
       pending.delete(probeId);
-      resolve2(err("CLIENT_PROBE_TIMEOUT", `${label ?? event} timed out after ${timeoutMs}ms.`));
+      resolve3(err("CLIENT_PROBE_TIMEOUT", `${label ?? event} timed out after ${timeoutMs}ms.`));
     }, timeoutMs);
     pending.set(probeId, (result) => {
       clearTimeout(timer);
       pending.delete(probeId);
-      if (result.ok) resolve2(ok(result.data));
-      else resolve2(err("INTERNAL", result.error));
+      if (result.ok) resolve3(ok(result.data));
+      else resolve3(err("INTERNAL", result.error));
     });
     emitNet(event, serverId, probeId, ...args);
   });
@@ -7004,12 +7065,12 @@ function ensureNetHandler(event) {
 }
 function waitForClientEvent(event, timeoutMs, fromSubject) {
   ensureNetHandler(event);
-  return new Promise((resolve2) => {
+  return new Promise((resolve3) => {
     const timer = setTimeout(() => {
       listeners.delete(listener);
-      resolve2(null);
+      resolve3(null);
     }, timeoutMs);
-    const listener = fromSubject === void 0 ? { event, resolve: resolve2, timer } : { event, fromSubject, resolve: resolve2, timer };
+    const listener = fromSubject === void 0 ? { event, resolve: resolve3, timer } : { event, fromSubject, resolve: resolve3, timer };
     listeners.add(listener);
   });
 }
@@ -7418,8 +7479,145 @@ function registerServerListNatives() {
   });
 }
 
-// src/server/tools/runCommand.ts
+// src/server/tools/runShell.ts
+var import_node_child_process = require("node:child_process");
+var import_node_path5 = require("node:path");
+var DEFAULT_ALLOWLIST = ["npm", "npx", "pnpm", "yarn", "bun", "vite", "git", "node"];
+var MAX_OUTPUT_BYTES = 1048576;
+var HARD_TIMEOUT_MS = 3e5;
 var Input3 = external_exports.object({
+  resource: external_exports.string().min(1),
+  command: external_exports.string().min(1),
+  args: external_exports.array(external_exports.string()).max(64).optional(),
+  cwd: external_exports.string().optional(),
+  stdin: external_exports.string().max(65536).optional(),
+  timeoutMs: external_exports.number().int().min(500).max(HARD_TIMEOUT_MS).optional(),
+  env: external_exports.record(external_exports.string()).optional()
+}).strict();
+function allowlist() {
+  const extra = csvSet("agent_api_shell_allowed_commands");
+  if (extra.size === 0) return new Set(DEFAULT_ALLOWLIST);
+  return extra;
+}
+function resolveCwd(resourceRoot, sub) {
+  if (!sub) return { ok: true, path: resourceRoot };
+  if (sub.includes("..") || sub.startsWith("/") || sub.startsWith("\\") || /^[a-z]:[\\/]/i.test(sub)) {
+    return { ok: false, reason: "cwd must be a relative subpath of the resource root." };
+  }
+  const abs = (0, import_node_path5.resolve)(resourceRoot, sub);
+  const root = (0, import_node_path5.resolve)(resourceRoot);
+  if (!abs.startsWith(root)) {
+    return { ok: false, reason: "cwd escapes the resource root." };
+  }
+  return { ok: true, path: abs };
+}
+function registerRunShell() {
+  register({
+    name: "run_shell",
+    description: "Run an allowlisted shell binary (default: npm, npx, pnpm, yarn, bun, vite, git, node) inside a resource folder. Use for `npm install`, `npx vite create`, `pnpm build`, etc. cwd is always anchored to the target resource root; relative subpaths are allowed. Override allowlist via convar agent_api_shell_allowed_commands (csv). Requires agent_api_readonly=false. Output is captured up to 1MB per stream.",
+    input: Input3,
+    handler: async (input, ctx) => {
+      if (ctx.convars.readonly) {
+        return err("COMMAND_NOT_ALLOWED", "Server is in read-only mode.");
+      }
+      const allowed = allowlist();
+      if (!allowed.has(input.command)) {
+        return err("COMMAND_NOT_ALLOWED", `Shell command not in allowlist: ${input.command}`, {
+          allowed: [...allowed]
+        });
+      }
+      const info = getResourceInfo(input.resource);
+      if (!info) {
+        return err("RESOURCE_NOT_FOUND", `Resource not found: ${input.resource}`);
+      }
+      const cwd = resolveCwd(info.path, input.cwd);
+      if (!cwd.ok) {
+        return err("PATH_OUTSIDE_SANDBOX", cwd.reason);
+      }
+      const timeoutMs = input.timeoutMs ?? 3e4;
+      const args = input.args ?? [];
+      return new Promise((resolveTool) => {
+        const child = (0, import_node_child_process.spawn)(input.command, args, {
+          cwd: cwd.path,
+          env: { ...process.env, ...input.env },
+          shell: false,
+          windowsHide: true
+        });
+        let stdout = "";
+        let stderr = "";
+        let stdoutCapped = false;
+        let stderrCapped = false;
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+          setTimeout(() => child.kill("SIGKILL"), 1e3).unref();
+        }, timeoutMs);
+        child.stdout.setEncoding("utf8");
+        child.stderr.setEncoding("utf8");
+        child.stdout.on("data", (chunk) => {
+          if (stdoutCapped) return;
+          if (stdout.length + chunk.length > MAX_OUTPUT_BYTES) {
+            stdout += chunk.slice(0, MAX_OUTPUT_BYTES - stdout.length);
+            stdoutCapped = true;
+          } else {
+            stdout += chunk;
+          }
+        });
+        child.stderr.on("data", (chunk) => {
+          if (stderrCapped) return;
+          if (stderr.length + chunk.length > MAX_OUTPUT_BYTES) {
+            stderr += chunk.slice(0, MAX_OUTPUT_BYTES - stderr.length);
+            stderrCapped = true;
+          } else {
+            stderr += chunk;
+          }
+        });
+        child.on("error", (e) => {
+          clearTimeout(timer);
+          resolveTool(err("INTERNAL", `spawn failed: ${e.message}`));
+        });
+        child.on("close", (code, signal) => {
+          clearTimeout(timer);
+          if (timedOut) {
+            resolveTool(
+              err("TIMEOUT", `${input.command} timed out after ${timeoutMs}ms.`, {
+                signal,
+                stdout,
+                stderr,
+                stdoutCapped,
+                stderrCapped
+              })
+            );
+            return;
+          }
+          resolveTool(
+            ok({
+              command: input.command,
+              args,
+              cwd: cwd.path,
+              exitCode: code,
+              signal,
+              durationMs: Date.now() - startedAt,
+              stdout,
+              stderr,
+              stdoutCapped,
+              stderrCapped
+            })
+          );
+        });
+        const startedAt = Date.now();
+        if (input.stdin !== void 0) {
+          child.stdin.write(input.stdin);
+        }
+        child.stdin.end();
+      });
+    }
+  });
+}
+
+// src/server/tools/runCommand.ts
+var Input4 = external_exports.object({
   command: external_exports.string().min(1),
   waitMs: external_exports.number().int().min(0).max(5e3).optional(),
   timeoutMs: external_exports.number().int().min(100).max(3e4).optional()
@@ -7428,7 +7626,7 @@ function registerRunCommand() {
   register({
     name: "run_command",
     description: "Run a console command from the allowlist (refresh, ensure/start/stop/restart <name>, players, say <text>). Returns captured console lines and, for lifecycle verbs, a structured state-before/after envelope.",
-    input: Input3,
+    input: Input4,
     handler: async (input, ctx) => {
       const parsed = parseAllowedCommand(input.command);
       if (!parsed.ok) return parsed;
@@ -7460,7 +7658,7 @@ function registerRunCommand() {
 }
 
 // src/server/tools/tailConsole.ts
-var Input4 = external_exports.object({
+var Input5 = external_exports.object({
   lines: external_exports.number().int().min(1).max(5e3).optional(),
   sinceTs: external_exports.number().int().min(0).optional(),
   channel: external_exports.string().optional()
@@ -7469,7 +7667,7 @@ function registerTailConsole() {
   register({
     name: "tail_console",
     description: "Return recent lines from the in-memory console ring buffer. Filter by since timestamp (ms epoch) or channel.",
-    input: Input4,
+    input: Input5,
     handler: async (input, ctx) => {
       const opts = {};
       if (input.lines !== void 0) opts.lines = input.lines;
@@ -7487,7 +7685,7 @@ function registerTailConsole() {
 
 // src/server/fs/write.ts
 var import_node_fs5 = require("node:fs");
-var import_node_path5 = require("node:path");
+var import_node_path6 = require("node:path");
 var WriteFileInput = external_exports.object({
   resource: external_exports.string().min(1),
   path: external_exports.string().min(1),
@@ -7518,7 +7716,7 @@ async function writeFile(input, ctx) {
     existed = false;
   }
   if (input.createDirs) {
-    await import_node_fs5.promises.mkdir((0, import_node_path5.dirname)(resolved.data.absPath), { recursive: true });
+    await import_node_fs5.promises.mkdir((0, import_node_path6.dirname)(resolved.data.absPath), { recursive: true });
   }
   await import_node_fs5.promises.writeFile(resolved.data.absPath, input.content, "utf8");
   return ok({
@@ -7906,7 +8104,7 @@ var StateBag = class {
 // node_modules/@overextended/ox_lib/dist/common/misc.js
 var context = IsDuplicityVersion() ? "server" : "client";
 function sleep3(ms) {
-  return new Promise((resolve2) => setTimeout(resolve2, ms, null));
+  return new Promise((resolve3) => setTimeout(resolve3, ms, null));
 }
 async function waitFor(cb, errMessage, timeout) {
   let value = await cb();
@@ -7916,12 +8114,12 @@ async function waitFor(cb, errMessage, timeout) {
   }
   const start = GetGameTimer();
   let id;
-  return new Promise((resolve2, reject) => {
+  return new Promise((resolve3, reject) => {
     id = setTick(async () => {
       const elapsed = timeout && GetGameTimer() - start;
       if (elapsed && elapsed > timeout) return reject(`${errMessage || "failed to resolve callback"} (waited ${elapsed}ms)`);
       value = await cb();
-      if (value !== void 0) resolve2(value);
+      if (value !== void 0) resolve3(value);
     });
   }).finally(() => clearTick(id));
 }
@@ -9506,10 +9704,10 @@ init_cache();
 var pendingCallbacks2 = {};
 var callbackTimeout2 = GetConvarInt("ox:callbackTimeout", 3e5);
 onNet(`__ox_cb_${cache.resource}`, (key, ...args) => {
-  const resolve2 = pendingCallbacks2[key];
-  if (!resolve2) return;
+  const resolve3 = pendingCallbacks2[key];
+  if (!resolve3) return;
   delete pendingCallbacks2[key];
-  resolve2(...args);
+  resolve3(...args);
 });
 function triggerClientCallback(eventName, playerId, ...args) {
   let key;
@@ -9518,10 +9716,10 @@ function triggerClientCallback(eventName, playerId, ...args) {
   while (pendingCallbacks2[key]);
   emitNet(`ox_lib:validateCallback`, playerId, eventName, cache.resource, key);
   emitNet(`__ox_cb_${eventName}`, playerId, cache.resource, key, ...args);
-  return new Promise((resolve2, reject) => {
+  return new Promise((resolve3, reject) => {
     pendingCallbacks2[key] = (args2) => {
       if (Array.isArray(args2) && args2[0] === "cb_invalid") reject(`callback '${eventName} does not exist`);
-      resolve2(args2);
+      resolve3(args2);
     };
     setTimeout(reject, callbackTimeout2, `callback event '${key}' timed out`);
   });
@@ -10004,6 +10202,17 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
     Recommended: keep the baseline above and prune empty folders at scaffold time.
 
+2.3 **Module style?** (only relevant if 2.1 = B)
+    - **A) Globals via manifest** \u2014 every file lives in \`server_scripts {}\` / \`client_scripts {}\` / \`shared_scripts {}\` and shares one big global namespace. Helpers in \`shared/util.lua\` just declare \`function MyHelper(...) end\` and any other file can call \`MyHelper(...)\` directly. Familiar, zero ceremony, hard to navigate at scale.
+    - **B) Returning modules + \`lib.require\`** \u2014 each file ends with \`return M\` and consumers write \`local util = lib.require('shared.util')\`. Only the entry file is in the manifest's \`*_scripts\` block; everything else is in \`files {}\`. Requires \`ox_lib\`. Explicit dependencies, no global pollution, easy to refactor.
+
+    Recommended: **B** if ox_lib is enabled AND the resource has more than ~3 files per side. Otherwise **A**.
+
+    If **B**, the fxmanifest must:
+    - put only the entry files in \`server_scripts\` / \`client_scripts\` (\`'server/main.lua'\`, \`'client/main.lua'\`)
+    - list every other Lua file under \`files {}\` so \`lib.require\` can load them
+    - declare \`@ox_lib/init.lua\` in \`shared_scripts\` so \`lib\` is available to both sides
+
 ### 3. Configuration
 
 3.1 **Does the resource need user-tunable configuration?**
@@ -10158,10 +10367,17 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 1. Call \`create_resource({ name, description, author })\`.
 2. Call \`refresh_resources({ waitMs: 700 })\` so FiveM picks up the folder.
-3. Call \`write_file\` for each planned file. Use \`createDirs: true\` for first write into any subfolder. Order: fxmanifest, config/*, shared/*, server/*, client/*, html/*, README.md.
-4. Call \`ensure_resource({ name, timeoutMs: 5000 })\`.
-5. If \`stateAfter\` is not \`started\`, immediately call \`tail_console({ lines: 50 })\`, find the error, propose a single-file fix, ask the user before re-writing.
-6. Print a final summary listing every file written, the open key, and the next thing the user should do.
+3. **If the user picked a Vite-based UI framework (5.2 = B):**
+   - Use \`run_shell\` to scaffold the web tree inside the resource:
+     \`run_shell({ resource, command: 'npm', args: ['create', 'vite@latest', 'web', '--', '--template', '<vue|react|svelte|...>'], timeoutMs: 60000 })\`
+   - Then \`run_shell({ resource, command: 'npm', args: ['install'], cwd: 'web', timeoutMs: 120000 })\`.
+   - Then write any additional config (state mgmt setup, CSS framework install) via subsequent \`run_shell\` calls.
+   - Edit \`web/vite.config.*\` so \`build.outDir\` points at \`../html\` and \`base\` is \`'./'\` so NUI can load the bundle relatively.
+   - Run \`run_shell({ resource, command: 'npm', args: ['run', 'build'], cwd: 'web', timeoutMs: 120000 })\` to produce \`html/\`.
+4. Call \`write_file\` for each Lua/config file you planned. Use \`createDirs: true\` for first write into any subfolder. Order: fxmanifest (last so file lists are correct), config/*, shared/*, server/*, client/*, html/* (pure-UI only \u2014 Vite bundles are emitted by step 3), README.md.
+5. Call \`ensure_resource({ name, timeoutMs: 5000 })\`.
+6. If \`stateAfter\` is not \`started\`, immediately call \`tail_console({ lines: 50 })\`, find the error, propose a single-file fix, ask the user before re-writing.
+7. Print a final summary listing every file written, every shell command run, the open key, and the next thing the user should do.
 
 ---
 
@@ -10226,6 +10442,7 @@ function main() {
   registerClientListNatives();
   registerServerCallNative();
   registerServerListNatives();
+  registerRunShell();
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
   registerPrompt(scaffoldFivemPrompt);

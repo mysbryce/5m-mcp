@@ -69,6 +69,17 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
     Recommended: keep the baseline above and prune empty folders at scaffold time.
 
+2.3 **Module style?** (only relevant if 2.1 = B)
+    - **A) Globals via manifest** — every file lives in \`server_scripts {}\` / \`client_scripts {}\` / \`shared_scripts {}\` and shares one big global namespace. Helpers in \`shared/util.lua\` just declare \`function MyHelper(...) end\` and any other file can call \`MyHelper(...)\` directly. Familiar, zero ceremony, hard to navigate at scale.
+    - **B) Returning modules + \`lib.require\`** — each file ends with \`return M\` and consumers write \`local util = lib.require('shared.util')\`. Only the entry file is in the manifest's \`*_scripts\` block; everything else is in \`files {}\`. Requires \`ox_lib\`. Explicit dependencies, no global pollution, easy to refactor.
+
+    Recommended: **B** if ox_lib is enabled AND the resource has more than ~3 files per side. Otherwise **A**.
+
+    If **B**, the fxmanifest must:
+    - put only the entry files in \`server_scripts\` / \`client_scripts\` (\`'server/main.lua'\`, \`'client/main.lua'\`)
+    - list every other Lua file under \`files {}\` so \`lib.require\` can load them
+    - declare \`@ox_lib/init.lua\` in \`shared_scripts\` so \`lib\` is available to both sides
+
 ### 3. Configuration
 
 3.1 **Does the resource need user-tunable configuration?**
@@ -223,10 +234,17 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 1. Call \`create_resource({ name, description, author })\`.
 2. Call \`refresh_resources({ waitMs: 700 })\` so FiveM picks up the folder.
-3. Call \`write_file\` for each planned file. Use \`createDirs: true\` for first write into any subfolder. Order: fxmanifest, config/*, shared/*, server/*, client/*, html/*, README.md.
-4. Call \`ensure_resource({ name, timeoutMs: 5000 })\`.
-5. If \`stateAfter\` is not \`started\`, immediately call \`tail_console({ lines: 50 })\`, find the error, propose a single-file fix, ask the user before re-writing.
-6. Print a final summary listing every file written, the open key, and the next thing the user should do.
+3. **If the user picked a Vite-based UI framework (5.2 = B):**
+   - Use \`run_shell\` to scaffold the web tree inside the resource:
+     \`run_shell({ resource, command: 'npm', args: ['create', 'vite@latest', 'web', '--', '--template', '<vue|react|svelte|...>'], timeoutMs: 60000 })\`
+   - Then \`run_shell({ resource, command: 'npm', args: ['install'], cwd: 'web', timeoutMs: 120000 })\`.
+   - Then write any additional config (state mgmt setup, CSS framework install) via subsequent \`run_shell\` calls.
+   - Edit \`web/vite.config.*\` so \`build.outDir\` points at \`../html\` and \`base\` is \`'./'\` so NUI can load the bundle relatively.
+   - Run \`run_shell({ resource, command: 'npm', args: ['run', 'build'], cwd: 'web', timeoutMs: 120000 })\` to produce \`html/\`.
+4. Call \`write_file\` for each Lua/config file you planned. Use \`createDirs: true\` for first write into any subfolder. Order: fxmanifest (last so file lists are correct), config/*, shared/*, server/*, client/*, html/* (pure-UI only — Vite bundles are emitted by step 3), README.md.
+5. Call \`ensure_resource({ name, timeoutMs: 5000 })\`.
+6. If \`stateAfter\` is not \`started\`, immediately call \`tail_console({ lines: 50 })\`, find the error, propose a single-file fix, ask the user before re-writing.
+7. Print a final summary listing every file written, every shell command run, the open key, and the next thing the user should do.
 
 ---
 

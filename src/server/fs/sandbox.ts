@@ -2,7 +2,73 @@ import { resolve, sep } from 'node:path';
 import { Envelope, err, ok } from '../util/envelope';
 import { getResourceInfo } from '../runtime/resources';
 
-const WRITE_EXTENSIONS = new Set(['.lua', '.js', '.ts', '.json', '.cfg', '.md', '.html', '.css']);
+const DEFAULT_WRITE_EXTENSIONS = new Set([
+  // FiveM runtime
+  '.lua',
+  '.cfg',
+  // JS / TS family
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.jsx',
+  // Web frameworks
+  '.vue',
+  '.svelte',
+  '.astro',
+  // Styles
+  '.css',
+  '.scss',
+  '.sass',
+  '.less',
+  '.styl',
+  '.postcss',
+  // Markup / docs
+  '.html',
+  '.htm',
+  '.md',
+  '.txt',
+  // Data / config
+  '.json',
+  '.jsonc',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.xml',
+  '.csv',
+  '.env',
+  '.example',
+  // Tool dotfiles (filename "foo.gitignore" style)
+  '.gitignore',
+  '.gitattributes',
+  '.editorconfig',
+  '.npmrc',
+  '.nvmrc',
+  '.prettierrc',
+  '.eslintrc',
+  '.eslintignore',
+  '.prettierignore',
+  // Vector assets (text)
+  '.svg',
+]);
+
+function readExtraExtensions(): Set<string> {
+  const raw = GetConvar('agent_api_extra_write_extensions', '');
+  return new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+      .map((s) => (s.startsWith('.') ? s : '.' + s)),
+  );
+}
+
+function writeExtensions(): Set<string> {
+  const out = new Set(DEFAULT_WRITE_EXTENSIONS);
+  for (const e of readExtraExtensions()) out.add(e);
+  return out;
+}
 
 function normalizeSlashes(p: string): string {
   return p.replaceAll('\\', '/').replaceAll(/\/{2,}/g, '/');
@@ -98,9 +164,10 @@ export function checkReadExtension(absPath: string): Envelope<true> {
 
 export function checkWriteExtension(absPath: string): Envelope<true> {
   const ext = lowerExt(absPath);
-  if (!WRITE_EXTENSIONS.has(ext)) {
+  const allowed = writeExtensions();
+  if (!allowed.has(ext)) {
     return err('EXTENSION_NOT_ALLOWED', `Write extension not allowed: ${ext}`, {
-      allowed: [...WRITE_EXTENSIONS],
+      allowed: [...allowed],
     });
   }
   return ok(true);
