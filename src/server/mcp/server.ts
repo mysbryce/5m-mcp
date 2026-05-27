@@ -5,7 +5,7 @@ import { getPrompt, listPrompts } from './prompts';
 import { injectedTexts } from '../dashboard/inject';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.2.0' };
+const SERVER_INFO = { name: 'agent_api', version: '0.3.0' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 

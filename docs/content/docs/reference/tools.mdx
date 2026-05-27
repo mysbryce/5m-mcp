@@ -13,6 +13,9 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | `list_resources` | Every registered resource with state |
 | `get_resource_state` | One resource's state + filesystem path |
 | `read_file` | Read from any resource; `offset` + `length` for windowed reads of large files |
+| `list_dir` | List a resource's files/folders; `recursive:true` returns the file tree (skips node_modules / dot-dirs) |
+| `find_files` | Glob a resource (`server/**/*.lua`, `**/*.vue`) matched against the path relative to its root |
+| `search_code` | Grep a resource for a substring or regex; returns file/line/text. Scope with `path`; skips binaries |
 | `tail_console` | Recent lines from the in-memory ring buffer; filterable by `since_ts` or `channel` |
 | `list_plugins` | Loader snapshot — which plugins enabled, which tools each added |
 
@@ -21,6 +24,8 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | Tool | Purpose | Gated by |
 | --- | --- | --- |
 | `write_file` | Write inside a configured write root | `readonly` |
+| `edit_file` | Surgical str-replace in an existing file (unique-match guard, `replaceAll`) — cheaper/safer than a full rewrite | `readonly` + write root + extension |
+| `wait_for_console` | Block until a console line matches `pattern` (or `timeoutMs`); pair with `ensure`/`restart` to catch the banner or an error. `matched:false` on timeout is not an error | — |
 | `create_resource` | Scaffold `fxmanifest.lua` + `server.lua` + `README.md` | `readonly` |
 | `refresh_resources` | `ExecuteCommand("refresh")` + capture window | ACE `command.refresh` |
 | `ensure_resource` | `ensure <name>`, wait for state `started`, return logs | ACE + per-resource lock |

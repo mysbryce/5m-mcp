@@ -19,7 +19,7 @@ export type Skill = SkillMeta & { body: string };
 // Category → predicate over a tool name. Plugin tools are matched by prefix
 // because they are registered dynamically (esx_*, oxlib_*, oxmysql_*).
 const CATEGORY_TOOLS: Record<string, (name: string) => boolean> = {
-  write: (n) => ['write_file', 'create_resource'].includes(n),
+  write: (n) => ['write_file', 'edit_file', 'create_resource'].includes(n),
   lifecycle: (n) =>
     [
       'ensure_resource',

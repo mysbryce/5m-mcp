@@ -30,6 +30,9 @@ import { registerScreenshotNui } from './tools/screenshotNui';
 import { registerRunCommand } from './tools/runCommand';
 import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
+import { registerEditFile } from './tools/edit';
+import { registerExploreTools } from './tools/explore';
+import { registerWaitForConsole } from './tools/waitForConsole';
 import { installOptInCommands } from './players/optin';
 import { installProbeListener } from './players/probes';
 import { ALL_PLUGINS } from './plugins';
@@ -42,7 +45,7 @@ import { registerListPreferences } from './tools/preferences';
 import { registerListSkills } from './tools/skills';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -62,6 +65,9 @@ function main(): void {
   registerReadFile();
   registerTailConsole();
   registerWriteFile();
+  registerEditFile();
+  registerExploreTools();
+  registerWaitForConsole();
   registerCreateResource();
   registerRefreshResources();
   registerEnsureResource();

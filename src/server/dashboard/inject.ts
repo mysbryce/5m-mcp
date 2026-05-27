@@ -3,6 +3,7 @@ import { skillsForTool } from './skills';
 
 const PREF_TRIGGER_TOOLS = new Set([
   'write_file',
+  'edit_file',
   'create_resource',
   'scaffold_fivem_resource_workflow',
   'run_shell',

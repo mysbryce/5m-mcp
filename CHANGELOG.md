@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] — 2026-05-28
+
+### Added
+
+- **Code navigation tools**: `list_dir` (flat or recursive file tree),
+  `find_files` (glob like `server/**/*.lua`), and `search_code` (substring or
+  regex grep → file/line/text, skips binaries). All read-only, sandboxed to a
+  resource, skip `node_modules` / dot-dirs.
+- **`edit_file`** — surgical string replacement in an existing file with a
+  unique-match guard (`replaceAll` to override). Cheaper and safer than
+  rewriting whole files via `write_file`; same readonly / write-root / extension
+  gates, and triggers the preference auto-injection like other write tools.
+- **`wait_for_console`** — block until a console line matches `pattern` (or
+  `timeoutMs`, default 5000). Pairs with `ensure_resource` / `restart_resource`
+  to detect the boot banner or an error without busy-polling `tail_console`.
+  `matched:false` on timeout is a normal result, not an error.
+
 ## [0.2.0] — 2026-05-27
 
 ### Added

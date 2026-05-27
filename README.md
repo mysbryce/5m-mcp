@@ -130,6 +130,16 @@ All tools speak the same envelope: `{ ok: true, data: ... }` or `{ ok: false, er
 | `run_command`         | Allowlisted console command (refresh / players / say / lifecycle verbs)   |
 | `tail_console`        | Recent ring-buffer lines, filterable by `since_ts` / `channel`            |
 
+### Navigation & editing (5)
+
+| Tool                  | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `list_dir`            | List a resource's files/folders; `recursive:true` for the file tree (skips node_modules / dot-dirs) |
+| `find_files`          | Glob a resource (`server/**/*.lua`, `**/*.vue`) against the path relative to its root |
+| `search_code`         | Grep substring/regex → file/line/text; skips binaries; scope with `path`  |
+| `edit_file`           | Surgical str-replace (unique-match guard, `replaceAll`) — cheaper/safer than rewriting; same write gates as `write_file` |
+| `wait_for_console`    | Block until a console line matches `pattern` (or timeout) — pairs with `ensure`/`restart` to catch the banner or an error |
+
 ### Live player testing (7) + client natives (2)
 
 | Tool                          | What it does                                                          |
