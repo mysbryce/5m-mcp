@@ -37,6 +37,8 @@ import { registerManageFiles } from './tools/manage';
 import { registerGetResourceManifest } from './tools/manifest';
 import { registerNuiInteract } from './tools/nuiInteract';
 import { registerScanErrors } from './tools/scanErrors';
+import { registerExportTools } from './tools/exports';
+import { registerServerMetrics } from './tools/metrics';
 import { listResources } from './runtime/resources';
 import { registerResource } from './mcp/resources';
 import { enabledPreferences } from './dashboard/preferences';
@@ -53,7 +55,7 @@ import { registerListPreferences } from './tools/preferences';
 import { registerListSkills } from './tools/skills';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.4.2';
+const VERSION = '0.5.0';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -80,6 +82,8 @@ function main(): void {
   registerScanErrors();
   registerGetResourceManifest();
   registerNuiInteract();
+  registerExportTools();
+  registerServerMetrics();
   registerCreateResource();
   registerRefreshResources();
   registerEnsureResource();

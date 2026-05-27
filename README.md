@@ -132,19 +132,28 @@ The MCP server also exposes **resources** (`resources/list` + `resources/read`):
 | `run_command`         | Allowlisted console command (refresh / players / say / lifecycle verbs)   |
 | `tail_console`        | Recent ring-buffer lines, filterable by `since_ts` / `channel`            |
 
-### Navigation, editing & debugging (9)
+### Navigation, editing & debugging (10)
 
 | Tool                  | What it does                                                              |
 | --------------------- | ------------------------------------------------------------------------- |
-| `list_dir`            | List a resource's files/folders; `recursive:true` for the file tree (skips node_modules / dot-dirs) |
+| `list_dir`            | List a resource's files/folders; `recursive:true` for the file tree (skips node_modules / dot-dirs / build output) |
 | `find_files`          | Glob a resource (`server/**/*.lua`, `**/*.vue`) against the path relative to its root |
-| `search_code`         | Grep substring/regex → file/line/text; skips binaries; scope with `path`  |
+| `search_code`         | Grep substring/regex → file/line/text; skips binaries + build output (`includeBuilt:true` to include) |
 | `edit_file`           | Surgical str-replace (unique-match guard, `replaceAll`) — cheaper/safer than rewriting; same write gates as `write_file` |
+| `multi_edit`          | Apply many edits across several files in ONE call; validated in memory first, all-or-nothing |
 | `delete_file`         | Delete one file inside a write root (refuses directories / blocked segments) |
 | `move_file`           | Move/rename a file within a resource (`createDirs`, `overwrite`)          |
 | `get_resource_manifest` | Parse fxmanifest.lua → structured `{ fx_version, game, version, *_scripts, files, dependencies, … }` |
 | `wait_for_console`    | Block until a console line matches `pattern` (or timeout) — pairs with `ensure`/`restart` to catch the banner or an error |
 | `scan_errors`         | Scan the console for SCRIPT ERRORs / tracebacks / JS exceptions → structured `{ message, frames:[{resource,file,line}] }` |
+
+### Resource exports & metrics (3)
+
+| Tool                  | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `list_exports`        | A resource's exports (manifest-declared + runtime-enumerable) — discovery for `call_export` |
+| `call_export`         | Invoke any started resource's server export `exports[resource][name](...args)`; readonly verb gate + `agent_api_export_blocked_methods` blocklist |
+| `server_metrics`      | Server health snapshot: uptime, online players, resource counts by state, agent_api host memory |
 
 ### NUI interaction (4) — drive the live UI over CDP
 

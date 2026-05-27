@@ -20,7 +20,14 @@ export type Skill = SkillMeta & { body: string };
 // because they are registered dynamically (esx_*, oxlib_*, oxmysql_*).
 const CATEGORY_TOOLS: Record<string, (name: string) => boolean> = {
   write: (n) =>
-    ['write_file', 'edit_file', 'create_resource', 'delete_file', 'move_file'].includes(n),
+    [
+      'write_file',
+      'edit_file',
+      'multi_edit',
+      'create_resource',
+      'delete_file',
+      'move_file',
+    ].includes(n),
   lifecycle: (n) =>
     [
       'ensure_resource',

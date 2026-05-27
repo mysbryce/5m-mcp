@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] — 2026-05-28
+
+### Added
+
+- **`list_exports` + `call_export`** — generic resource-export introspection and
+  invocation. `call_export` runs `exports[resource][name](...args)` on any started
+  resource (not just the bundled bridges), behind the same read-verb gate as the
+  reflective native tools plus an `agent_api_export_blocked_methods` blocklist.
+- **`multi_edit`** — apply many edits across several files of a resource in one
+  call. Every edit is validated in memory first; nothing is written unless all
+  pass, so a bad edit can't leave a half-applied set. Saves round-trips vs.
+  repeated `edit_file`.
+- **`server_metrics`** — server health snapshot: uptime, online player count,
+  resource counts by state, and the agent_api host process memory (rss / heap).
+
 ## [0.4.2] — 2026-05-28
 
 ### Changed

@@ -19,6 +19,9 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | `get_resource_manifest` | Parse `fxmanifest.lua` into structured metadata (fx_version, game, version, script/files/dependency lists) |
 | `tail_console` | Recent lines from the in-memory ring buffer; filterable by `since_ts` or `channel` |
 | `scan_errors` | Scan the console for SCRIPT ERRORs / Lua tracebacks / JS exceptions → structured `{ message, frames: [{resource,file,line}] }`; filter by `resource` / `sinceTs` |
+| `list_exports` | A resource's exports (manifest-declared + runtime-enumerable) — discovery for `call_export` |
+| `call_export` | Invoke any started resource's server export `exports[resource][name](...args)`; readonly verb gate + `agent_api_export_blocked_methods` blocklist |
+| `server_metrics` | Server health snapshot: uptime, online players, resource counts by state, agent_api host process memory |
 | `list_plugins` | Loader snapshot — which plugins enabled, which tools each added |
 
 ## Core (write + lifecycle)
@@ -27,6 +30,7 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | --- | --- | --- |
 | `write_file` | Write inside a configured write root | `readonly` |
 | `edit_file` | Surgical str-replace in an existing file (unique-match guard, `replaceAll`) — cheaper/safer than a full rewrite | `readonly` + write root + extension |
+| `multi_edit` | Apply many edits across several files of a resource in one call; validated in memory first, written all-or-nothing | `readonly` + write root + extension |
 | `delete_file` | Delete one file (refuses directories and blocked segments) | `readonly` + write root |
 | `move_file` | Move/rename a file within a resource (`createDirs`, `overwrite`) | `readonly` + write root + extension |
 | `wait_for_console` | Block until a console line matches `pattern` (or `timeoutMs`); pair with `ensure`/`restart` to catch the banner or an error. `matched:false` on timeout is not an error | — |
