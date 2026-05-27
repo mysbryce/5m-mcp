@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import UiToggle from '../../shared/ui/UiToggle.vue';
+import UiSelect from '../../shared/ui/UiSelect.vue';
 import type { PermDescriptor } from '../../shared/types';
 
 const props = defineProps<{ descriptor: PermDescriptor; value: string }>();
@@ -9,10 +11,18 @@ function onBool(v: boolean) {
   emit('change', v ? 'true' : 'false');
 }
 function onText(e: Event) {
-  emit('change', (e.target as HTMLInputElement | HTMLSelectElement).value);
+  emit('change', (e.target as HTMLInputElement).value);
 }
 
 const boolValue = () => props.value === 'true';
+
+const enumOptions = computed(() =>
+  (props.descriptor.options ?? []).map((o) => ({ value: o, label: o })),
+);
+const enumModel = computed({
+  get: () => props.value,
+  set: (v: string) => emit('change', v),
+});
 </script>
 
 <template>
@@ -27,9 +37,12 @@ const boolValue = () => props.value === 'true';
         :model-value="boolValue()"
         @update:model-value="onBool"
       />
-      <select v-else-if="descriptor.type === 'enum'" :value="value" @change="onText">
-        <option v-for="o in descriptor.options" :key="o" :value="o">{{ o }}</option>
-      </select>
+      <UiSelect
+        v-else-if="descriptor.type === 'enum'"
+        v-model="enumModel"
+        :options="enumOptions"
+        align="right"
+      />
       <input
         v-else
         :value="value"

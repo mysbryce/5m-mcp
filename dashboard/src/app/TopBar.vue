@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
+import UiSelect from '../shared/ui/UiSelect.vue';
 import type { PublicUser } from '../shared/types';
 import { useI18n } from '../i18n/useI18n';
 
@@ -8,6 +10,13 @@ defineProps<{ user: PublicUser | null }>();
 defineEmits<{ logout: [] }>();
 
 const { t, locale, setLocale, options } = useI18n();
+
+const langOptions = computed(() => options.value.map((o) => ({ value: o.code, label: o.name })));
+const langModel = computed({
+  get: () => locale.value,
+  set: (v: string) => setLocale(v),
+});
+
 </script>
 
 <template>
@@ -16,14 +25,9 @@ const { t, locale, setLocale, options } = useI18n();
       <span class="dot" /> agent_api <UiBadge>{{ t('nav.dashboard') }}</UiBadge>
     </div>
     <div class="right">
-      <select
-        class="lang"
-        :value="locale"
-        aria-label="Language"
-        @change="setLocale(($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="o in options" :key="o.code" :value="o.code">{{ o.name }}</option>
-      </select>
+      <div class="lang">
+        <UiSelect v-model="langModel" :options="langOptions" align="right" aria-label="Language" />
+      </div>
       <template v-if="user">
         <span class="who">
           {{ user.username }}
@@ -71,9 +75,7 @@ const { t, locale, setLocale, options } = useI18n();
   font-size: 13px;
 }
 .lang {
-  width: auto;
-  padding: 5px 8px;
-  font-size: 12px;
+  width: 110px;
 }
 .who {
   display: inline-flex;

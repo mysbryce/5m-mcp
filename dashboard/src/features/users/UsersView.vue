@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import UiButton from '../../shared/ui/UiButton.vue';
 import UiBadge from '../../shared/ui/UiBadge.vue';
+import UiSelect from '../../shared/ui/UiSelect.vue';
 import StatusMessage from '../../shared/ui/StatusMessage.vue';
 import type { PublicUser, Role } from '../../shared/types';
 import { useUsers } from './useUsers';
@@ -14,6 +15,17 @@ const username = ref('');
 const password = ref('');
 const role = ref<Role>('member');
 const error = ref('');
+
+const roleOptions = computed(() => [
+  { value: 'member', label: t('role.member') },
+  { value: 'master', label: t('role.master') },
+]);
+const roleModel = computed({
+  get: () => role.value as string,
+  set: (v: string) => {
+    role.value = v as Role;
+  },
+});
 
 onMounted(load);
 
@@ -60,10 +72,7 @@ const fmtDate = (d: string) => new Date(d).toLocaleDateString();
       <div class="add">
         <input v-model="username" :placeholder="t('users.username')" />
         <input v-model="password" type="password" :placeholder="t('users.password')" />
-        <select v-model="role">
-          <option value="member">{{ t('role.member') }}</option>
-          <option value="master">{{ t('role.master') }}</option>
-        </select>
+        <UiSelect v-model="roleModel" :options="roleOptions" />
         <UiButton @click="onAdd">{{ t('users.add') }}</UiButton>
       </div>
     </div>
