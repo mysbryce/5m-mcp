@@ -1,4 +1,5 @@
 import { z, ZodTypeAny } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Envelope, err } from '../util/envelope';
 import { ToolContext } from './context';
 
@@ -21,6 +22,23 @@ export function getTool(name: string): Tool | undefined {
 
 export function listTools(): Tool[] {
   return [...tools.values()];
+}
+
+export type ToolDescriptor = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
+export function listToolDescriptors(): ToolDescriptor[] {
+  return listTools().map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: zodToJsonSchema(tool.input, {
+      target: 'jsonSchema7',
+      $refStrategy: 'none',
+    }) as Record<string, unknown>,
+  }));
 }
 
 export async function dispatch(

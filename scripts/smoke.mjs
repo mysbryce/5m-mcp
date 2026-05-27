@@ -38,6 +38,43 @@ async function post(name, input) {
   return { status: res.status, body: await res.json().catch(() => null) };
 }
 
+let rpcId = 1;
+async function rpc(method, params) {
+  const res = await fetch(`${URL}/mcp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-agent-token': token,
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: rpcId++,
+      method,
+      ...(params === undefined ? {} : { params }),
+    }),
+  });
+  return { status: res.status, body: await res.json().catch(() => null) };
+}
+
+function summarizeRpc(label, result, opts = {}) {
+  const body = result.body;
+  const isError = !!body?.error || body?.result?.isError === true;
+  const expectFail = opts.expectFail;
+  const passed = expectFail ? isError : !isError;
+  const tag = passed ? 'OK ' : 'ERR';
+  const detail = body?.error
+    ? ` rpc:${body.error.code}`
+    : body?.result?.isError
+      ? ' tool-error'
+      : '';
+  const suffix = expectFail ? ' (expected reject)' : '';
+  console.log(`[${tag}] ${pad(label)} (${result.status})${detail}${suffix}`);
+  if (process.env.VERBOSE) {
+    console.log(fmt(body));
+    console.log('');
+  }
+}
+
 function summarize(label, result, opts = {}) {
   const ok = result.body?.ok === true;
   const expectFail = opts.expectFail;
@@ -96,6 +133,32 @@ async function main() {
     { status: badAuth.status, body: await badAuth.json().catch(() => null) },
     { expectFail: true },
   );
+
+  console.log('');
+  console.log('-- MCP transport --');
+  summarizeRpc(
+    'mcp initialize',
+    await rpc('initialize', {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'smoke', version: '0.0.1' },
+    }),
+  );
+  summarizeRpc('mcp tools/list', await rpc('tools/list'));
+  summarizeRpc('mcp tools/call health', await rpc('tools/call', { name: 'health', arguments: {} }));
+  summarizeRpc(
+    'mcp tools/call read_file',
+    await rpc('tools/call', {
+      name: 'read_file',
+      arguments: { resource: 'agent_api', path: 'fxmanifest.lua' },
+    }),
+  );
+  summarizeRpc(
+    'mcp tools/call unknown tool',
+    await rpc('tools/call', { name: 'no_such_tool', arguments: {} }),
+    { expectFail: true },
+  );
+  summarizeRpc('mcp unknown method', await rpc('does_not_exist'), { expectFail: true });
 
   console.log('');
   console.log('Tip: set VERBOSE=1 to see full envelopes.');

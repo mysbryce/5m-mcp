@@ -3,6 +3,8 @@ import { HTTP_STATUS } from '../errors/codes';
 import { dispatch, listTools } from '../tools/registry';
 import { ToolContext } from '../tools/context';
 import { audit, hashToken } from '../audit/log';
+import { handleMcpRequest } from '../mcp/server';
+import { RpcErrorCode, isJsonRpcRequest, rpcError } from '../mcp/jsonrpc';
 
 type FivemReq = {
   address: string;
@@ -66,6 +68,62 @@ export function installHttpRouter(deps: RouterDeps): void {
 
       if (req.method === 'GET' && path === '/health') {
         reply(res, 200, ok({ status: 'up', resource: GetCurrentResourceName() }));
+        return;
+      }
+
+      if (path === '/mcp') {
+        if (req.method !== 'POST') {
+          reply(res, 405, err('NOT_FOUND', 'MCP endpoint requires POST.'));
+          return;
+        }
+
+        const supplied = headers['x-agent-token'];
+        if (supplied !== deps.token) {
+          reply(res, 401, err('UNAUTHORIZED', 'Invalid or missing token.'));
+          return;
+        }
+
+        const body = await readBody(req);
+        if (body.length > MAX_BODY_BYTES) {
+          reply(res, 413, err('BODY_TOO_LARGE', `Body exceeds ${MAX_BODY_BYTES} bytes.`));
+          return;
+        }
+
+        let parsedBody: unknown;
+        try {
+          parsedBody = JSON.parse(body || 'null');
+        } catch {
+          reply(res, 400, rpcError(null, RpcErrorCode.PARSE_ERROR, 'Body is not valid JSON.'));
+          return;
+        }
+
+        if (!isJsonRpcRequest(parsedBody)) {
+          reply(
+            res,
+            400,
+            rpcError(null, RpcErrorCode.INVALID_REQUEST, 'Not a JSON-RPC 2.0 request.'),
+          );
+          return;
+        }
+
+        const rpcResp = await handleMcpRequest(parsedBody, deps.ctx);
+        audit({
+          tool: `mcp:${parsedBody.method}`,
+          params:
+            parsedBody.method === 'tools/call'
+              ? (parsedBody.params ?? null)
+              : { method: parsedBody.method },
+          result_code: rpcResp && 'error' in rpcResp ? `RPC_${rpcResp.error.code}` : 'OK',
+          caller: hashToken(supplied ?? ''),
+        });
+
+        if (rpcResp === null) {
+          // notification — empty 202 per MCP HTTP transport convention
+          res.writeHead(202, JSON_HEADERS);
+          res.send('');
+          return;
+        }
+        reply(res, 200, rpcResp);
         return;
       }
 

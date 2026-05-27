@@ -48,7 +48,7 @@ function main(): void {
     ctx: { convars, console: consoleBuffer },
   });
 
-  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M3)`);
+  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M4)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 
