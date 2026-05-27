@@ -149,6 +149,10 @@ async function main() {
   );
 
   console.log('');
+  console.log('-- plugins --');
+  summarize('list_plugins', await post('list_plugins'));
+
+  console.log('');
   console.log('-- MCP transport --');
   summarizeRpc(
     'mcp initialize',

@@ -5626,6 +5626,35 @@ async function handleMcpRequest(req, ctx) {
   }
 }
 
+// src/server/runtime/rateLimit.ts
+var TokenBucket = class {
+  buckets = /* @__PURE__ */ new Map();
+  capacity;
+  refillPerMs;
+  constructor(perMinute) {
+    this.capacity = Math.max(1, perMinute);
+    this.refillPerMs = this.capacity / 6e4;
+  }
+  consume(key, cost = 1) {
+    const now2 = Date.now();
+    let bucket = this.buckets.get(key);
+    if (!bucket) {
+      bucket = { tokens: this.capacity, lastRefill: now2 };
+      this.buckets.set(key, bucket);
+    } else {
+      const elapsed = now2 - bucket.lastRefill;
+      bucket.tokens = Math.min(this.capacity, bucket.tokens + elapsed * this.refillPerMs);
+      bucket.lastRefill = now2;
+    }
+    if (bucket.tokens >= cost) {
+      bucket.tokens -= cost;
+      return { ok: true, remaining: Math.floor(bucket.tokens), retryAfterMs: 0 };
+    }
+    const deficit = cost - bucket.tokens;
+    return { ok: false, remaining: 0, retryAfterMs: Math.ceil(deficit / this.refillPerMs) };
+  }
+};
+
 // src/server/http/router.ts
 var MAX_BODY_BYTES = 5 * 1024 * 1024;
 var JSON_HEADERS = {
@@ -5659,6 +5688,11 @@ function lowercaseHeaders(h) {
   return out;
 }
 function installHttpRouter(deps) {
+  const bucket = new TokenBucket(deps.ctx.convars.ratePerMinute);
+  function checkRate(token) {
+    const r = bucket.consume(hashToken(token));
+    return r.ok ? { ok: true } : { ok: false, retryAfterMs: r.retryAfterMs };
+  }
   SetHttpHandler(async (req, res) => {
     try {
       const headers = lowercaseHeaders(req.headers);
@@ -5675,6 +5709,15 @@ function installHttpRouter(deps) {
         const supplied2 = headers["x-agent-token"];
         if (supplied2 !== deps.token) {
           reply(res, 401, err("UNAUTHORIZED", "Invalid or missing token."));
+          return;
+        }
+        const rate2 = checkRate(supplied2);
+        if (!rate2.ok) {
+          reply(
+            res,
+            429,
+            err("RATE_LIMITED", "Too many requests.", { retryAfterMs: rate2.retryAfterMs })
+          );
           return;
         }
         const body2 = await readBody(req);
@@ -5738,6 +5781,15 @@ function installHttpRouter(deps) {
       const supplied = headers["x-agent-token"];
       if (supplied !== deps.token) {
         reply(res, 401, err("UNAUTHORIZED", "Invalid or missing token."));
+        return;
+      }
+      const rate = checkRate(supplied);
+      if (!rate.ok) {
+        reply(
+          res,
+          429,
+          err("RATE_LIMITED", "Too many requests.", { retryAfterMs: rate.retryAfterMs })
+        );
         return;
       }
       const body = await readBody(req);
@@ -6818,6 +6870,391 @@ function installOptInCommands(ttlSeconds) {
   });
 }
 
+// src/server/plugins/helpers.ts
+function isResourceStarted(name) {
+  const state = GetResourceState(name);
+  if (state === "started") return { ok: true };
+  return { ok: false, reason: `${name} is ${state || "missing"}` };
+}
+function safeExport(resource, name) {
+  var _a;
+  try {
+    const ex = (_a = globalThis.exports) == null ? void 0 : _a[resource];
+    if (!ex) return null;
+    const fn = ex[name];
+    return fn ?? null;
+  } catch {
+    return null;
+  }
+}
+function callExport(resource, name, args) {
+  const fn = safeExport(resource, name);
+  if (!fn) return null;
+  try {
+    return fn(...args);
+  } catch {
+    return null;
+  }
+}
+
+// src/server/plugins/esx/index.ts
+var RESOURCE = "es_extended";
+var cachedEsx = null;
+function getEsx() {
+  if (cachedEsx) return cachedEsx;
+  const obj = callExport(RESOURCE, "getSharedObject", []);
+  if (obj) cachedEsx = obj;
+  return obj;
+}
+function snapshot(p) {
+  var _a, _b, _c, _d;
+  return {
+    serverId: p.source,
+    identifier: p.identifier,
+    name: (_a = p.getName) == null ? void 0 : _a.call(p),
+    money: (_b = p.getMoney) == null ? void 0 : _b.call(p),
+    accounts: ((_c = p.getAccounts) == null ? void 0 : _c.call(p)) ?? null,
+    job: ((_d = p.getJob) == null ? void 0 : _d.call(p)) ?? null
+  };
+}
+var esxPlugin = {
+  name: "esx",
+  description: "ESX Legacy framework \u2014 read player data, money, job, inventory ops.",
+  detect: () => {
+    const started = isResourceStarted(RESOURCE);
+    if (!started.ok) return started;
+    if (!safeExport(RESOURCE, "getSharedObject")) {
+      return { ok: false, reason: `${RESOURCE} export getSharedObject not callable` };
+    }
+    return { ok: true };
+  },
+  install: ({ register: register2, convars }) => {
+    register2({
+      name: "esx_list_players",
+      description: "List all online ESX players with identifier, money, accounts, and job.",
+      input: external_exports.object({}).strict(),
+      handler: async () => {
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const ids = esx.GetPlayers();
+        const players = ids.map((id) => esx.GetPlayerFromId(id)).filter((p) => !!p).map((p) => snapshot(p));
+        return ok({ count: players.length, players });
+      }
+    });
+    register2({
+      name: "esx_get_player",
+      description: "Fetch one ESX player snapshot by server id.",
+      input: external_exports.object({ serverId: external_exports.number().int().min(1) }).strict(),
+      handler: async (input) => {
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const p = esx.GetPlayerFromId(input.serverId);
+        if (!p) return err("PLAYER_NOT_FOUND", `No ESX player for serverId ${input.serverId}.`);
+        return ok(snapshot(p));
+      }
+    });
+    if (convars.readonly) return;
+    register2({
+      name: "esx_add_money",
+      description: 'Add money to an ESX player. Pass account="cash"/"bank"/"black_money" or omit for primary money.',
+      input: external_exports.object({
+        serverId: external_exports.number().int().min(1),
+        amount: external_exports.number().int(),
+        account: external_exports.string().optional()
+      }).strict(),
+      handler: async (input) => {
+        var _a, _b, _c, _d;
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const p = esx.GetPlayerFromId(input.serverId);
+        if (!p) return err("PLAYER_NOT_FOUND", `serverId ${input.serverId} not found.`);
+        if (input.account) {
+          if (input.amount >= 0) (_a = p.addAccountMoney) == null ? void 0 : _a.call(p, input.account, input.amount);
+          else (_b = p.removeAccountMoney) == null ? void 0 : _b.call(p, input.account, -input.amount);
+        } else {
+          if (input.amount >= 0) (_c = p.addMoney) == null ? void 0 : _c.call(p, input.amount);
+          else (_d = p.removeMoney) == null ? void 0 : _d.call(p, -input.amount);
+        }
+        return ok(snapshot(p));
+      }
+    });
+    register2({
+      name: "esx_set_job",
+      description: "Assign a job + grade to an ESX player.",
+      input: external_exports.object({
+        serverId: external_exports.number().int().min(1),
+        job: external_exports.string().min(1),
+        grade: external_exports.number().int().min(0)
+      }).strict(),
+      handler: async (input) => {
+        var _a;
+        const esx = getEsx();
+        if (!esx) return err("INTERNAL", "ESX shared object unavailable.");
+        const p = esx.GetPlayerFromId(input.serverId);
+        if (!p) return err("PLAYER_NOT_FOUND", `serverId ${input.serverId} not found.`);
+        (_a = p.setJob) == null ? void 0 : _a.call(p, input.job, input.grade);
+        return ok(snapshot(p));
+      }
+    });
+  }
+};
+
+// src/server/plugins/oxlib/index.ts
+var RESOURCE2 = "ox_lib";
+var NotifyInput = external_exports.object({
+  serverId: external_exports.number().int().min(1),
+  title: external_exports.string().min(1).max(120),
+  description: external_exports.string().max(2048).optional(),
+  type: external_exports.enum(["inform", "success", "warning", "error"]).optional(),
+  duration: external_exports.number().int().min(500).max(6e4).optional(),
+  position: external_exports.enum([
+    "top",
+    "top-right",
+    "top-left",
+    "bottom",
+    "bottom-right",
+    "bottom-left",
+    "center-right",
+    "center-left"
+  ]).optional()
+}).strict();
+var oxLibPlugin = {
+  name: "oxlib",
+  description: "ox_lib bridge \u2014 UI notifications and server callbacks.",
+  detect: () => isResourceStarted(RESOURCE2),
+  install: ({ register: register2 }) => {
+    register2({
+      name: "oxlib_notify",
+      description: "Trigger an ox_lib UI notification on one player.",
+      input: NotifyInput,
+      handler: async (input) => {
+        emitNet("ox_lib:notify", input.serverId, {
+          title: input.title,
+          description: input.description,
+          type: input.type ?? "inform",
+          duration: input.duration,
+          position: input.position
+        });
+        return ok({ sent: true });
+      }
+    });
+    register2({
+      name: "oxlib_resource_versions",
+      description: "List ox_lib detection info \u2014 useful as a connectivity probe.",
+      input: external_exports.object({}).strict(),
+      handler: async () => {
+        const state = GetResourceState(RESOURCE2);
+        if (state !== "started") return err("INTERNAL", `ox_lib state: ${state}`);
+        return ok({ resource: RESOURCE2, state });
+      }
+    });
+  }
+};
+
+// src/server/plugins/oxmysql/index.ts
+var RESOURCE3 = "oxmysql";
+function callAsync(method, query, params) {
+  return new Promise((resolve2, reject) => {
+    const fn = safeExport(RESOURCE3, method);
+    if (!fn) {
+      reject(new Error(`oxmysql.${method} export missing`));
+      return;
+    }
+    try {
+      fn(
+        query,
+        params,
+        (val) => resolve2(val)
+      );
+    } catch (e) {
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
+  });
+}
+function firstWord(q) {
+  var _a;
+  return ((_a = q.trim().split(/\s+/)[0]) == null ? void 0 : _a.toUpperCase()) ?? "";
+}
+function readonlyMode() {
+  const v = GetConvar("agent_api_plugin_oxmysql_readonly", "true").toLowerCase();
+  return v !== "false" && v !== "0" && v !== "no" && v !== "off";
+}
+function statementAllowlist() {
+  return new Set(
+    GetConvar("agent_api_plugin_oxmysql_allow_statements", "SELECT").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+  );
+}
+function guardQuery(query) {
+  const verb = firstWord(query);
+  if (!verb) return { ok: false, reason: "empty query" };
+  if (readonlyMode() && verb !== "SELECT") {
+    return { ok: false, reason: `oxmysql is in readonly mode (only SELECT allowed, got ${verb})` };
+  }
+  if (!statementAllowlist().has(verb)) {
+    return {
+      ok: false,
+      reason: `statement ${verb} is not in agent_api_plugin_oxmysql_allow_statements`
+    };
+  }
+  return { ok: true };
+}
+var QueryInput = external_exports.object({
+  query: external_exports.string().min(1).max(1e4),
+  params: external_exports.array(external_exports.unknown()).max(64).optional(),
+  rowLimit: external_exports.number().int().min(1).max(1e3).optional()
+}).strict();
+var oxMysqlPlugin = {
+  name: "oxmysql",
+  description: "oxmysql bridge \u2014 gated SQL. Defaults to SELECT-only via convars; off by default.",
+  detect: () => {
+    const started = isResourceStarted(RESOURCE3);
+    if (!started.ok) return started;
+    if (!safeExport(RESOURCE3, "query_async")) {
+      return { ok: false, reason: `${RESOURCE3} export query_async missing` };
+    }
+    return { ok: true };
+  },
+  install: ({ register: register2 }) => {
+    register2({
+      name: "oxmysql_query",
+      description: "Run a SELECT query and return rows. Statement type is restricted by agent_api_plugin_oxmysql_readonly (default true) and agent_api_plugin_oxmysql_allow_statements (default SELECT).",
+      input: QueryInput,
+      handler: async (input) => {
+        const guard = guardQuery(input.query);
+        if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
+        try {
+          const rows = await callAsync("query_async", input.query, input.params ?? []);
+          const limit = input.rowLimit ?? 100;
+          const trimmed = Array.isArray(rows) ? rows.slice(0, limit) : rows;
+          return ok({
+            rowCount: Array.isArray(rows) ? rows.length : null,
+            truncated: Array.isArray(rows) && rows.length > limit,
+            rows: trimmed
+          });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+    register2({
+      name: "oxmysql_scalar",
+      description: "Run a query and return only the first column of the first row.",
+      input: QueryInput,
+      handler: async (input) => {
+        const guard = guardQuery(input.query);
+        if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
+        try {
+          const value = await callAsync("scalar_async", input.query, input.params ?? []);
+          return ok({ value });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+    register2({
+      name: "oxmysql_execute",
+      description: "Run a non-SELECT statement (INSERT/UPDATE/DELETE/DDL). Requires agent_api_plugin_oxmysql_readonly=false AND the statement verb to be in agent_api_plugin_oxmysql_allow_statements.",
+      input: QueryInput,
+      handler: async (input) => {
+        const guard = guardQuery(input.query);
+        if (!guard.ok) return err("COMMAND_NOT_ALLOWED", guard.reason);
+        try {
+          const result = await callAsync("execute_async", input.query, input.params ?? []);
+          return ok({ result });
+        } catch (e) {
+          return err("INTERNAL", e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+  }
+};
+
+// src/server/plugins/index.ts
+var ALL_PLUGINS = [esxPlugin, oxLibPlugin, oxMysqlPlugin];
+
+// src/server/plugins/loader.ts
+function pluginConvar(name) {
+  return `agent_api_plugin_${name}_enabled`;
+}
+function isExplicitlyDisabled(plugin) {
+  const v = GetConvar(pluginConvar(plugin.name), "auto").toLowerCase();
+  return v === "false" || v === "0" || v === "no" || v === "off";
+}
+function isExplicitlyEnabled(plugin) {
+  const v = GetConvar(pluginConvar(plugin.name), "auto").toLowerCase();
+  return v === "true" || v === "1" || v === "yes" || v === "on" || v === "force";
+}
+function loadPlugins(plugins, convars) {
+  const before = new Set(listTools().map((t) => t.name));
+  const statuses = [];
+  for (const plugin of plugins) {
+    if (isExplicitlyDisabled(plugin)) {
+      statuses.push({
+        name: plugin.name,
+        enabled: false,
+        reason: `${pluginConvar(plugin.name)} = false`,
+        toolNames: []
+      });
+      continue;
+    }
+    const detected = plugin.detect();
+    if (!detected.ok && !isExplicitlyEnabled(plugin)) {
+      statuses.push({
+        name: plugin.name,
+        enabled: false,
+        reason: detected.reason,
+        toolNames: []
+      });
+      continue;
+    }
+    try {
+      plugin.install({ convars, register });
+      const after = new Set(listTools().map((t) => t.name));
+      const added = [...after].filter((n) => !before.has(n));
+      for (const n of added) before.add(n);
+      statuses.push({ name: plugin.name, enabled: true, toolNames: added });
+    } catch (e) {
+      statuses.push({
+        name: plugin.name,
+        enabled: false,
+        reason: `install failed: ${e instanceof Error ? e.message : String(e)}`,
+        toolNames: []
+      });
+    }
+  }
+  return statuses;
+}
+function logPluginStatuses(statuses) {
+  const tag = `[${GetCurrentResourceName()}]`;
+  if (statuses.length === 0) {
+    console.log(`${tag} plugins: (none registered)`);
+    return;
+  }
+  for (const s of statuses) {
+    if (s.enabled) {
+      console.log(
+        `${tag} plugin enabled : ${s.name} (+${s.toolNames.length} tools: ${s.toolNames.join(", ") || "-"})`
+      );
+    } else {
+      console.log(`${tag} plugin skipped : ${s.name} (${s.reason})`);
+    }
+  }
+}
+
+// src/server/tools/plugins.ts
+var snapshotRef = [];
+function setPluginSnapshot(snapshot2) {
+  snapshotRef = snapshot2;
+}
+function registerListPlugins() {
+  register({
+    name: "list_plugins",
+    description: "Show which framework plugins (ESX, ox_lib, oxmysql, ...) are enabled.",
+    input: external_exports.object({}).strict(),
+    handler: async () => ok({ plugins: snapshotRef })
+  });
+}
+
 // src/server/index.ts
 var VERSION = "0.0.1";
 var RESOURCE_NAME = GetCurrentResourceName();
@@ -6849,11 +7286,15 @@ function main() {
   registerWaitForClientEvent();
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
+  registerListPlugins();
+  const pluginSnapshot = loadPlugins(ALL_PLUGINS, convars);
+  setPluginSnapshot(pluginSnapshot);
+  logPluginStatuses(pluginSnapshot);
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer }
   });
-  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M5)`);
+  console.log(`[${RESOURCE_NAME}] up \u2014 v${VERSION} (M6)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 main();

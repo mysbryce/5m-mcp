@@ -28,6 +28,9 @@ import { registerTailConsole } from './tools/tailConsole';
 import { registerWriteFile } from './tools/writeFile';
 import { installOptInCommands } from './players/optin';
 import { installProbeListener } from './players/probes';
+import { ALL_PLUGINS } from './plugins';
+import { loadPlugins, logPluginStatuses } from './plugins/loader';
+import { registerListPlugins, setPluginSnapshot } from './tools/plugins';
 
 const VERSION = '0.0.1';
 const RESOURCE_NAME = GetCurrentResourceName();
@@ -64,12 +67,17 @@ function main(): void {
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
 
+  registerListPlugins();
+  const pluginSnapshot = loadPlugins(ALL_PLUGINS, convars);
+  setPluginSnapshot(pluginSnapshot);
+  logPluginStatuses(pluginSnapshot);
+
   installHttpRouter({
     token: tokenInfo.token,
     ctx: { convars, console: consoleBuffer },
   });
 
-  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M5)`);
+  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M6)`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
 }
 

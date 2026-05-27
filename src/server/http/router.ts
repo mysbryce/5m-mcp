@@ -5,6 +5,7 @@ import { ToolContext } from '../tools/context';
 import { audit, hashToken } from '../audit/log';
 import { handleMcpRequest } from '../mcp/server';
 import { RpcErrorCode, isJsonRpcRequest, rpcError } from '../mcp/jsonrpc';
+import { TokenBucket } from '../runtime/rateLimit';
 
 type FivemReq = {
   address: string;
@@ -61,6 +62,13 @@ export type RouterDeps = {
 };
 
 export function installHttpRouter(deps: RouterDeps): void {
+  const bucket = new TokenBucket(deps.ctx.convars.ratePerMinute);
+
+  function checkRate(token: string): { ok: true } | { ok: false; retryAfterMs: number } {
+    const r = bucket.consume(hashToken(token));
+    return r.ok ? { ok: true } : { ok: false, retryAfterMs: r.retryAfterMs };
+  }
+
   SetHttpHandler(async (req: FivemReq, res: FivemRes) => {
     try {
       const headers = lowercaseHeaders(req.headers);
@@ -80,6 +88,16 @@ export function installHttpRouter(deps: RouterDeps): void {
         const supplied = headers['x-agent-token'];
         if (supplied !== deps.token) {
           reply(res, 401, err('UNAUTHORIZED', 'Invalid or missing token.'));
+          return;
+        }
+
+        const rate = checkRate(supplied);
+        if (!rate.ok) {
+          reply(
+            res,
+            429,
+            err('RATE_LIMITED', 'Too many requests.', { retryAfterMs: rate.retryAfterMs }),
+          );
           return;
         }
 
@@ -155,6 +173,16 @@ export function installHttpRouter(deps: RouterDeps): void {
       const supplied = headers['x-agent-token'];
       if (supplied !== deps.token) {
         reply(res, 401, err('UNAUTHORIZED', 'Invalid or missing token.'));
+        return;
+      }
+
+      const rate = checkRate(supplied);
+      if (!rate.ok) {
+        reply(
+          res,
+          429,
+          err('RATE_LIMITED', 'Too many requests.', { retryAfterMs: rate.retryAfterMs }),
+        );
         return;
       }
 
