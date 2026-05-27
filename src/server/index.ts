@@ -35,6 +35,7 @@ import { loadPlugins, logPluginStatuses } from './plugins/loader';
 import { registerListPlugins, setPluginSnapshot } from './tools/plugins';
 import { registerPrompt } from './mcp/prompts';
 import { scaffoldFivemPrompt } from './mcp/prompts/scaffoldFivem';
+import { registerScaffoldFivemWorkflow } from './tools/scaffoldWorkflow';
 
 const VERSION = '0.0.1';
 const RESOURCE_NAME = GetCurrentResourceName();
@@ -76,6 +77,7 @@ function main(): void {
   installProbeListener();
 
   registerPrompt(scaffoldFivemPrompt);
+  registerScaffoldFivemWorkflow();
 
   registerListPlugins();
   const pluginSnapshot = loadPlugins(ALL_PLUGINS, convars);

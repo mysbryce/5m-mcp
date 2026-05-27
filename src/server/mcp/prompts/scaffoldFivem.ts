@@ -1,23 +1,6 @@
 import { Prompt } from '../prompts';
 
-export const scaffoldFivemPrompt: Prompt = {
-  name: 'scaffold-fivem-resource',
-  description:
-    'Grill-mode workflow for scaffolding a new FiveM resource end-to-end via agent_api. ' +
-    'The assistant MUST run through every question one at a time before any file is written, ' +
-    'and every question MUST present a recommended default.',
-  build: () => [
-    {
-      role: 'user',
-      content: {
-        type: 'text',
-        text: SCRIPT,
-      },
-    },
-  ],
-};
-
-const SCRIPT = `# FiveM Resource Scaffold — Grill Mode
+export const SCAFFOLD_FIVEM_SCRIPT = `# FiveM Resource Scaffold — Grill Mode
 
 You are about to scaffold a brand new FiveM resource for the user via the **agent_api** MCP tools. This prompt is a **hard contract**. Read it once, then follow it exactly.
 
@@ -251,3 +234,17 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 Start with question **1.1 — Resource name**. Do not skip ahead. Do not offer to write code yet.
 `;
+
+export const scaffoldFivemPrompt: Prompt = {
+  name: 'scaffold-fivem-resource',
+  description:
+    'Grill-mode workflow for scaffolding a new FiveM resource end-to-end via agent_api. ' +
+    'The assistant MUST run through every question one at a time before any file is written, ' +
+    'and every question MUST present a recommended default.',
+  build: () => [
+    {
+      role: 'user',
+      content: { type: 'text', text: SCAFFOLD_FIVEM_SCRIPT },
+    },
+  ],
+};

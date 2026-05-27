@@ -9935,20 +9935,7 @@ function registerListPlugins() {
 }
 
 // src/server/mcp/prompts/scaffoldFivem.ts
-var scaffoldFivemPrompt = {
-  name: "scaffold-fivem-resource",
-  description: "Grill-mode workflow for scaffolding a new FiveM resource end-to-end via agent_api. The assistant MUST run through every question one at a time before any file is written, and every question MUST present a recommended default.",
-  build: () => [
-    {
-      role: "user",
-      content: {
-        type: "text",
-        text: SCRIPT
-      }
-    }
-  ]
-};
-var SCRIPT = `# FiveM Resource Scaffold \u2014 Grill Mode
+var SCAFFOLD_FIVEM_SCRIPT = `# FiveM Resource Scaffold \u2014 Grill Mode
 
 You are about to scaffold a brand new FiveM resource for the user via the **agent_api** MCP tools. This prompt is a **hard contract**. Read it once, then follow it exactly.
 
@@ -10182,6 +10169,29 @@ Walk this tree top-to-bottom. **Branches in bold** activate based on prior answe
 
 Start with question **1.1 \u2014 Resource name**. Do not skip ahead. Do not offer to write code yet.
 `;
+var scaffoldFivemPrompt = {
+  name: "scaffold-fivem-resource",
+  description: "Grill-mode workflow for scaffolding a new FiveM resource end-to-end via agent_api. The assistant MUST run through every question one at a time before any file is written, and every question MUST present a recommended default.",
+  build: () => [
+    {
+      role: "user",
+      content: { type: "text", text: SCAFFOLD_FIVEM_SCRIPT }
+    }
+  ]
+};
+
+// src/server/tools/scaffoldWorkflow.ts
+function registerScaffoldFivemWorkflow() {
+  register({
+    name: "scaffold_fivem_resource_workflow",
+    description: 'MANDATORY pre-flight for ANY new FiveM resource. CALL THIS TOOL FIRST whenever the user expresses intent to create, scaffold, build, set up, or generate a new FiveM resource \u2014 including phrases like "create a resource", "make a script", "build a new resource", "new fivem script", "scaffold a resource", "\u0E17\u0E33 resource \u0E43\u0E2B\u0E21\u0E48", "\u0E2A\u0E23\u0E49\u0E32\u0E07 resource", "\u0E2A\u0E23\u0E49\u0E32\u0E07 script", "\u0E2D\u0E22\u0E32\u0E01\u0E44\u0E14\u0E49 resource \u0E17\u0E35\u0E48...", "\u0E02\u0E2D resource ...", "\u0E40\u0E02\u0E35\u0E22\u0E19 resource \u0E43\u0E2B\u0E21\u0E48", "build a chat system in fivem", or any equivalent in any language. It returns a hard-contract grill workflow that you MUST follow before calling create_resource / write_file / refresh_resources / ensure_resource. Do not call those four tools before invoking this one.',
+    input: external_exports.object({}).strict(),
+    handler: async () => ok({
+      contract: SCAFFOLD_FIVEM_SCRIPT,
+      instructions: "Read `contract` in full, then begin executing the grill workflow against the user. Ask question 1.1 first. Do not skip ahead. Do not call any scaffolding tool until the workflow signals confirmation."
+    })
+  });
+}
 
 // src/server/index.ts
 var VERSION = "0.0.1";
@@ -10219,6 +10229,7 @@ function main() {
   installOptInCommands(convars.testSessionTtlSeconds);
   installProbeListener();
   registerPrompt(scaffoldFivemPrompt);
+  registerScaffoldFivemWorkflow();
   registerListPlugins();
   const pluginSnapshot = loadPlugins(ALL_PLUGINS, convars);
   setPluginSnapshot(pluginSnapshot);
