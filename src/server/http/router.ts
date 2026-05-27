@@ -1,0 +1,138 @@
+import { Envelope, err, ok } from "../util/envelope";
+import { HTTP_STATUS } from "../errors/codes";
+import { dispatch, listTools } from "../tools/registry";
+import { ToolContext } from "../tools/context";
+import { audit, hashToken } from "../audit/log";
+
+type FivemReq = {
+  address: string;
+  method: string;
+  path: string;
+  headers: Record<string, string>;
+  setDataHandler: (cb: (data: string) => void) => void;
+};
+
+type FivemRes = {
+  writeHead: (status: number, headers?: Record<string, string>) => void;
+  send: (body?: string) => void;
+};
+
+const MAX_BODY_BYTES = 5 * 1024 * 1024;
+const JSON_HEADERS = {
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
+};
+
+function readBody(req: FivemReq): Promise<string> {
+  return new Promise((resolve) => {
+    if (req.method === "GET" || req.method === "HEAD") {
+      resolve("");
+      return;
+    }
+    try {
+      req.setDataHandler((data) => resolve(data ?? ""));
+    } catch {
+      resolve("");
+    }
+  });
+}
+
+function reply(res: FivemRes, status: number, body: unknown): void {
+  res.writeHead(status, JSON_HEADERS);
+  res.send(JSON.stringify(body));
+}
+
+function statusFor(envelope: Envelope<unknown>): number {
+  if (envelope.ok) return 200;
+  return HTTP_STATUS[envelope.error.code] ?? 500;
+}
+
+function lowercaseHeaders(h: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(h ?? {})) out[k.toLowerCase()] = v;
+  return out;
+}
+
+export type RouterDeps = {
+  token: string;
+  ctx: ToolContext;
+};
+
+export function installHttpRouter(deps: RouterDeps): void {
+  SetHttpHandler(async (req: FivemReq, res: FivemRes) => {
+    try {
+      const headers = lowercaseHeaders(req.headers);
+      const path = (req.path ?? "/").split("?")[0] ?? "/";
+
+      if (req.method === "GET" && path === "/health") {
+        reply(res, 200, ok({ status: "up", resource: GetCurrentResourceName() }));
+        return;
+      }
+
+      if (req.method === "GET" && path === "/tools") {
+        const supplied = headers["x-agent-token"];
+        if (supplied !== deps.token) {
+          reply(res, 401, err("UNAUTHORIZED", "Invalid or missing token."));
+          return;
+        }
+        reply(
+          res,
+          200,
+          ok({
+            tools: listTools().map((t) => ({
+              name: t.name,
+              description: t.description,
+            })),
+          }),
+        );
+        return;
+      }
+
+      const toolMatch = path.match(/^\/tools\/([a-z_][a-z0-9_]*)$/i);
+      if (!toolMatch || req.method !== "POST") {
+        reply(res, 404, err("NOT_FOUND", `No route for ${req.method} ${path}`));
+        return;
+      }
+
+      const supplied = headers["x-agent-token"];
+      if (supplied !== deps.token) {
+        reply(res, 401, err("UNAUTHORIZED", "Invalid or missing token."));
+        return;
+      }
+
+      const body = await readBody(req);
+      if (body.length > MAX_BODY_BYTES) {
+        reply(
+          res,
+          413,
+          err("BODY_TOO_LARGE", `Body exceeds ${MAX_BODY_BYTES} bytes.`),
+        );
+        return;
+      }
+
+      let parsedBody: unknown = {};
+      if (body) {
+        try {
+          parsedBody = JSON.parse(body);
+        } catch {
+          reply(res, 400, err("INVALID_INPUT", "Body is not valid JSON."));
+          return;
+        }
+      }
+
+      const toolName = toolMatch[1]!;
+      const envelope = await dispatch(toolName, parsedBody, deps.ctx);
+      audit({
+        tool: toolName,
+        params: parsedBody,
+        result_code: envelope.ok ? "OK" : envelope.error.code,
+        caller: hashToken(supplied ?? ""),
+      });
+      reply(res, statusFor(envelope), envelope);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`[${GetCurrentResourceName()}] router error:`, message);
+      reply(res, 500, err("INTERNAL", message));
+    }
+  });
+}
