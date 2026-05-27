@@ -1,7 +1,7 @@
-#requires -RunAsAdministrator
 <#
 .SYNOPSIS
-  Symlink this repo into a FiveM server's resources/[agent] folder.
+  Junction-link this repo into a FiveM server's resources/[agent] folder.
+  Uses NTFS junctions (no admin required).
 
 .EXAMPLE
   pwsh -File scripts/dev-link.ps1 -ServerRoot "D:\Sure\txData\ESXLegacy_004D5F.base"

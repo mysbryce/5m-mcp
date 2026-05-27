@@ -4382,7 +4382,7 @@ function normalizeSlashes(p) {
 function lowerNorm(p) {
   return normalizeSlashes(p).toLowerCase();
 }
-var BLOCKED_SEGMENTS = [".env", "txData", "database", "cache"];
+var BLOCKED_SEGMENTS = /* @__PURE__ */ new Set([".env", "txdata", "database", "cache"]);
 var ALLOWED_EXTENSIONS = /* @__PURE__ */ new Set([
   ".lua",
   ".js",
@@ -4398,9 +4398,12 @@ function lowerExt(p) {
   const i = p.lastIndexOf(".");
   return i < 0 ? "" : p.slice(i).toLowerCase();
 }
-function hasBlockedSegment(absPath) {
-  const segs = absPath.toLowerCase().split(/[\\/]+/);
-  return BLOCKED_SEGMENTS.some((b) => segs.includes(b.toLowerCase()));
+function hasBlockedSegment(absPath, resourceRoot) {
+  const lowerAbs = absPath.toLowerCase();
+  const lowerRoot = resourceRoot.toLowerCase();
+  const inside = lowerAbs.startsWith(lowerRoot) ? lowerAbs.slice(lowerRoot.length) : lowerAbs;
+  const segs = inside.split(/[\\/]+/).filter(Boolean);
+  return segs.some((s) => BLOCKED_SEGMENTS.has(s));
 }
 function resolveResourcePath(resourceName, relative) {
   if (!relative || relative.startsWith("/") || relative.startsWith("\\")) {
@@ -4422,9 +4425,9 @@ function resolveResourcePath(resourceName, relative) {
       relative
     });
   }
-  if (hasBlockedSegment(abs)) {
+  if (hasBlockedSegment(abs, root)) {
     return err("PATH_BLOCKED", "Path contains a blocked segment.", {
-      blocked: BLOCKED_SEGMENTS
+      blocked: [...BLOCKED_SEGMENTS]
     });
   }
   return ok({

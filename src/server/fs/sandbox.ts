@@ -12,7 +12,7 @@ function lowerNorm(p: string): string {
   return normalizeSlashes(p).toLowerCase();
 }
 
-const BLOCKED_SEGMENTS = ['.env', 'txData', 'database', 'cache'];
+const BLOCKED_SEGMENTS = new Set(['.env', 'txdata', 'database', 'cache']);
 const ALLOWED_EXTENSIONS = new Set([
   '.lua',
   '.js',
@@ -30,9 +30,12 @@ function lowerExt(p: string): string {
   return i < 0 ? '' : p.slice(i).toLowerCase();
 }
 
-function hasBlockedSegment(absPath: string): boolean {
-  const segs = absPath.toLowerCase().split(/[\\/]+/);
-  return BLOCKED_SEGMENTS.some((b) => segs.includes(b.toLowerCase()));
+function hasBlockedSegment(absPath: string, resourceRoot: string): boolean {
+  const lowerAbs = absPath.toLowerCase();
+  const lowerRoot = resourceRoot.toLowerCase();
+  const inside = lowerAbs.startsWith(lowerRoot) ? lowerAbs.slice(lowerRoot.length) : lowerAbs;
+  const segs = inside.split(/[\\/]+/).filter(Boolean);
+  return segs.some((s) => BLOCKED_SEGMENTS.has(s));
 }
 
 export type ResolvedPath = {
@@ -69,9 +72,9 @@ export function resolveResourcePath(
     });
   }
 
-  if (hasBlockedSegment(abs)) {
+  if (hasBlockedSegment(abs, root)) {
     return err('PATH_BLOCKED', 'Path contains a blocked segment.', {
-      blocked: BLOCKED_SEGMENTS,
+      blocked: [...BLOCKED_SEGMENTS],
     });
   }
 

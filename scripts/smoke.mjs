@@ -38,11 +38,14 @@ async function post(name, input) {
   return { status: res.status, body: await res.json().catch(() => null) };
 }
 
-function summarize(label, result) {
+function summarize(label, result, opts = {}) {
   const ok = result.body?.ok === true;
-  const tag = ok ? 'OK ' : 'ERR';
-  const code = ok ? '' : ` ${result.body?.error?.code ?? '?'}`;
-  console.log(`[${tag}] ${pad(label)} (${result.status})${code}`);
+  const expectFail = opts.expectFail;
+  const passed = expectFail ? !ok : ok;
+  const tag = passed ? 'OK ' : 'ERR';
+  const detail = ok ? '' : ` ${result.body?.error?.code ?? '?'}`;
+  const suffix = expectFail ? ' (expected reject)' : '';
+  console.log(`[${tag}] ${pad(label)} (${result.status})${detail}${suffix}`);
   if (process.env.VERBOSE) {
     console.log(fmt(result.body));
     console.log('');
@@ -64,16 +67,26 @@ async function main() {
     await post('read_file', { resource: 'agent_api', path: 'fxmanifest.lua' }),
   );
   summarize('tail_console', await post('tail_console', { lines: 5 }));
-  summarize('UNAUTHORIZED check', {
-    status: (
-      await fetch(`${URL}/tools/health`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-agent-token': 'wrong' },
-        body: '{}',
-      })
-    ).status,
-    body: { ok: false, error: { code: 'UNAUTHORIZED' } },
+  summarize(
+    'reject path escape',
+    await post('read_file', { resource: 'agent_api', path: '../../../etc/passwd' }),
+    { expectFail: true },
+  );
+  summarize(
+    'reject unknown resource',
+    await post('read_file', { resource: 'no_such_resource_xyz', path: 'foo.lua' }),
+    { expectFail: true },
+  );
+  const badAuth = await fetch(`${URL}/tools/health`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-agent-token': 'wrong' },
+    body: '{}',
   });
+  summarize(
+    'reject wrong token',
+    { status: badAuth.status, body: await badAuth.json().catch(() => null) },
+    { expectFail: true },
+  );
 
   console.log('');
   console.log('Tip: set VERBOSE=1 to see full envelopes.');
