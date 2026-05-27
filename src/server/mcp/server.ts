@@ -4,7 +4,7 @@ import { ToolContext } from '../tools/context';
 import { getPrompt, listPrompts } from './prompts';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.1.1' };
+const SERVER_INFO = { name: 'agent_api', version: '0.1.2' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 

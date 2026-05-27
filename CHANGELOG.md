@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] — 2026-05-27
+
+### Added
+
+- Dashboard internationalisation (English + Thai). Languages are JSON-only:
+  drop `dashboard/src/i18n/locales/<code>.json` and Vite's import.meta.glob
+  registers it at build time — no code change. Inter (Latin) + Noto Sans Thai
+  fonts, locale persisted to localStorage, navigator-language detection.
+- Custom `UiSelect` dropdown replacing every native `<select>` (language
+  switcher, enum permissions, role picker) — themed, click-outside/Escape to
+  close, check-marked active option.
+
 ## [0.1.1] — 2026-05-27
 
 ### Fixed
