@@ -1,9 +1,5 @@
 # 5m-mcp
 
-- **Docs:** <https://mysbryce.github.io/5m-mcp/> 
-- **Source:** <https://github.com/mysbryce/5m-mcp>
-- **License:** [PolyForm Noncommercial 1.0.0](./LICENSE) — non-commercial use, attribution required.
-
 A single FiveM resource that exposes a safe **MCP** (Model Context Protocol) surface, so any
 MCP-aware agent — Claude Code, Codex, Cursor — can **build, debug, and live-test FiveM resources
 against a running server**.
@@ -31,6 +27,12 @@ against a running server**.
 1. Drop the folder at `resources/[agent]/agent_api/` (or `npm run generate:resource`).
 2. In the server console: `refresh` → `ensure agent_api`.
 3. Copy the MCP config the resource prints on first start into your client.
+
+---
+
+- **Docs:** <https://mysbryce.github.io/5m-mcp/> 
+- **Source:** <https://github.com/mysbryce/5m-mcp>
+- **License:** [PolyForm Noncommercial 1.0.0](./LICENSE) — non-commercial use, attribution required.
 
 Full setup, the complete tool catalog, convars, dashboard, and security model live in the
 **[docs](https://mysbryce.github.io/5m-mcp/)**.
