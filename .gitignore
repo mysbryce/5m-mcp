@@ -21,3 +21,4 @@ dashboard/dist/
 .idea/
 .vscode/
 *.tsbuildinfo
+.agents
