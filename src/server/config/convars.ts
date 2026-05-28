@@ -38,7 +38,7 @@ export function loadConvars(): Convars {
 
   return {
     rawToken: readString('agent_api_token', ''),
-    readonly: readBool('agent_api_readonly', false),
+    readonly: readBool('agent_api_readonly', true),
     writeRoots: [defaultRoot, ...extraWrite],
     controlRoots: [defaultRoot, ...extraControl, ...extraWrite],
     consoleBufferLines: readInt('agent_api_console_buffer_lines', 2000),

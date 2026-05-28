@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { Envelope, err, ok } from '../util/envelope';
 import { register } from './registry';
@@ -7,9 +8,24 @@ import { ToolContext } from './context';
 import { getResourceInfo } from '../runtime/resources';
 import { csvSet } from '../plugins/dynamic';
 
-const DEFAULT_ALLOWLIST = ['npm', 'npx', 'pnpm', 'yarn', 'bun', 'vite', 'git', 'node'];
+// `rtk` (Rust Token Killer) ships bundled with this resource under bin/.
+const DEFAULT_ALLOWLIST = ['npm', 'npx', 'pnpm', 'yarn', 'bun', 'vite', 'git', 'node', 'rtk'];
 const MAX_OUTPUT_BYTES = 1_048_576; // 1 MB per stream
 const HARD_TIMEOUT_MS = 300_000;
+
+// Binaries we ship inside the resource. Resolved to an absolute path so they
+// run regardless of the FiveM server process PATH (e.g. ~/.cargo/bin missing).
+const BUNDLED_BINARIES: Record<string, string> = {
+  rtk: process.platform === 'win32' ? 'bin/rtk.exe' : 'bin/rtk',
+};
+
+/** Map an allowlisted command to its bundled absolute path, else leave it for PATH lookup. */
+function resolveBinary(command: string): string {
+  const rel = BUNDLED_BINARIES[command];
+  if (!rel) return command;
+  const abs = join(GetResourcePath(GetCurrentResourceName()), rel);
+  return existsSync(abs) ? abs : command;
+}
 
 const Input = z
   .object({
@@ -55,8 +71,9 @@ export function registerRunShell(): void {
   register({
     name: 'run_shell',
     description:
-      'Run an allowlisted shell binary (default: npm, npx, pnpm, yarn, bun, vite, git, node) ' +
-      'inside a resource folder. Use for `npm install`, `npx vite create`, `pnpm build`, etc. ' +
+      'Run an allowlisted shell binary (default: npm, npx, pnpm, yarn, bun, vite, git, node, rtk) ' +
+      'inside a resource folder. Use for `npm install`, `npx vite create`, `pnpm build`, `rtk git status`, etc. ' +
+      'rtk (Rust Token Killer) is bundled in bin/ and runs without a PATH entry. ' +
       'cwd is always anchored to the target resource root; relative subpaths are allowed. ' +
       'Override allowlist via convar agent_api_shell_allowed_commands (csv). ' +
       'Requires agent_api_readonly=false. Output is captured up to 1MB per stream.',
@@ -99,8 +116,13 @@ export function registerRunShell(): void {
         }
       }
 
+      const binary = resolveBinary(input.command);
+      // With shell:true (Windows), an absolute path may contain spaces/brackets
+      // (e.g. resources/[development]/...). Quote it so the shell treats it as one token.
+      const spawnCmd = useShell && binary !== input.command ? `"${binary}"` : binary;
+
       return new Promise<Envelope<unknown>>((resolveTool) => {
-        const child = spawn(input.command, args, {
+        const child = spawn(spawnCmd, args, {
           cwd: cwd.path,
           env: { ...process.env, ...input.env },
           shell: useShell,

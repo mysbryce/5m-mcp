@@ -17,7 +17,7 @@ convar_category 'agent_api' {
   'agent_api',
   {
     { 'Token (blank = auto-generate)', 'agent_api_token',                  'CV_STRING', '' },
-    { 'Read-only mode',                'agent_api_readonly',               'CV_BOOL',   'false' },
+    { 'Read-only mode (set false to allow writes/shell)', 'agent_api_readonly',     'CV_BOOL',   'true' },
     { 'Default write root',            'agent_api_root',                   'CV_STRING', 'resources/[agent]' },
     { 'Extra write roots (csv)',       'agent_api_allow_write_paths',      'CV_STRING', '' },
     { 'Extra control roots (csv)',     'agent_api_allow_control_paths',    'CV_STRING', '' },
