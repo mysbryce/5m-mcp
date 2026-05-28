@@ -1,9 +1,39 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
 const AUDIT_FILE = 'dist/audit.log';
+// Params can carry whole file bodies (write_file). Cap what we persist so the
+// log does not balloon or leak large payloads; keep a short preview only.
+const MAX_PARAM_CHARS = 2_000;
+// Rotate once the log passes this size, keeping a single .1 backup.
+const MAX_AUDIT_BYTES = 5 * 1024 * 1024;
 let resolvedPath: string | null = null;
+
+function truncateParams(params: unknown): unknown {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(params);
+  } catch {
+    return '[unserializable]';
+  }
+  if (serialized === undefined || serialized.length <= MAX_PARAM_CHARS) return params;
+  return {
+    _truncated: true,
+    _chars: serialized.length,
+    preview: serialized.slice(0, MAX_PARAM_CHARS),
+  };
+}
+
+function rotateIfNeeded(p: string): void {
+  try {
+    if (statSync(p).size > MAX_AUDIT_BYTES) {
+      renameSync(p, p + '.1'); // overwrites any previous backup
+    }
+  } catch {
+    // no file yet, or rename failed — not fatal
+  }
+}
 
 function path(): string {
   if (resolvedPath) return resolvedPath;
@@ -26,9 +56,12 @@ export type AuditEntry = {
 };
 
 export function audit(entry: Omit<AuditEntry, 'ts'>): void {
-  const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n';
+  const safe = { ...entry, params: truncateParams(entry.params) };
+  const line = JSON.stringify({ ts: new Date().toISOString(), ...safe }) + '\n';
   try {
-    appendFileSync(path(), line, 'utf8');
+    const p = path();
+    rotateIfNeeded(p);
+    appendFileSync(p, line, 'utf8');
   } catch (e) {
     console.error(`[${GetCurrentResourceName()}] audit write failed:`, e);
   }

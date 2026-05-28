@@ -132,6 +132,16 @@ function lowerExt(p: string): string {
   return i < 0 ? '' : p.slice(i).toLowerCase();
 }
 
+// Keep the error compact: a single failed extension does not need the full
+// ~100-item allowlist echoed back into the agent's context on every miss.
+function extNotAllowedMessage(ext: string, allowedCount: number): string {
+  return (
+    `Extension not allowed: ${ext || '(none)'}. ` +
+    `${allowedCount} text/code/config extensions are allowed; ` +
+    `add more via convar agent_api_extra_write_extensions (csv).`
+  );
+}
+
 function hasBlockedSegment(absPath: string, resourceRoot: string): boolean {
   const lowerAbs = absPath.toLowerCase();
   const lowerRoot = resourceRoot.toLowerCase();
@@ -194,8 +204,8 @@ export function checkReadExtension(absPath: string): Envelope<true> {
   // if the agent may write a text type, it may also read it.
   const allowed = writeExtensions();
   if (!allowed.has(ext)) {
-    return err('EXTENSION_NOT_ALLOWED', `Extension not allowed: ${ext}`, {
-      allowed: [...allowed],
+    return err('EXTENSION_NOT_ALLOWED', extNotAllowedMessage(ext, allowed.size), {
+      ext: ext || '(none)',
     });
   }
   return ok(true);
@@ -205,8 +215,8 @@ export function checkWriteExtension(absPath: string): Envelope<true> {
   const ext = lowerExt(absPath);
   const allowed = writeExtensions();
   if (!allowed.has(ext)) {
-    return err('EXTENSION_NOT_ALLOWED', `Write extension not allowed: ${ext}`, {
-      allowed: [...allowed],
+    return err('EXTENSION_NOT_ALLOWED', extNotAllowedMessage(ext, allowed.size), {
+      ext: ext || '(none)',
     });
   }
   return ok(true);
