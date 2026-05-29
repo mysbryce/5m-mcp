@@ -14,7 +14,7 @@ description: The 16 defence layers that keep one mistake from being catastrophic
 | 3 — Rate limit | Token bucket, 120 req/min default per token hash, returns `RATE_LIMITED` | Runaway agent loops |
 | 4 — JSON parse | Throws `INVALID_INPUT` on malformed JSON | Garbage payloads |
 | 5 — zod schema | Per-tool `.strict()` schema | Unknown fields, wrong types |
-| 6 — Readonly mode | `agent_api_readonly=true` blocks every mutating tool | Production lock-down |
+| 6 — Readonly mode | `agent_api_readonly` (defaults to `true`) blocks every mutating tool | Production lock-down; opt into writes with `false` |
 | 7 — Path sandbox | `sandbox.ts` + per-tool checks | `..`, absolute paths, `txData/.env/database/cache` segments, writes outside configured roots |
 | 8 — Extension allowlist | broad text-file set in `sandbox.ts` (read shares the write set) | Writing/reading `.exe`, `.dll`, binary blobs |
 | 9 — Verb allowlist | `parseAllowedCommand` for `run_command` | Banned console verbs (`quit`, `exec`, `add_ace`, `rcon_password`, …) |
@@ -45,7 +45,7 @@ Reflective tools (`server_call_native`, `client_call_native`, `esx_call_player`,
 2. **Convar blocklist** — operator-controlled, applies to every reflective call.
 3. **Readonly verb heuristic** — when `readonly=true`, only method names starting with `Get/Has/Is/Does/Can/Will/Network` pass. Anything else (`Set`, `Add`, `Delete`, `Drop`, `Spawn`, …) refused.
 
-These layers compose. Even with `readonly=false` (the dev default), `DropPlayer` is still blocked.
+These layers compose. Even with `readonly=false`, `DropPlayer` is still blocked.
 
 ## What's intentionally NOT defended
 

@@ -16,9 +16,10 @@ against a running server**.
 - **Live in-game testing.** Opt-in players, invoke **any** client/server native by name, and drive the NUI over CDP — screenshot, click, fill, and eval, reaching even cross-origin resource iframes.
 - **Framework-aware.** Bundled **ESX / ox_lib / oxmysql** bridges (reflective method calls, DB schema introspection, gated migrations) plus calling **any** resource's exports.
 - **Teach it your way.** A web dashboard where you set **Preferences** (mirror your structure / coding / UI conventions) and upload **Skills** that auto-inject into the tool calls you choose.
+- **Watch & steer the work.** A dashboard **Sessions** board shows the agent's current task + todo list per resource, with a file tree — click any file to send the agent a targeted request, which it picks up on its next tool call.
 - **Guided workflows.** MCP prompts for the hard parts: scaffold (grill Q&A), `debug-resource`, `add-db-table`, and a `security-review` cheat-prevention audit.
 - **Monitor + audit.** Realtime, colorized console and a full audit trail of every agent action — live in the dashboard.
-- **Safe by default.** Auto-generated token, read-only kill-switch, path sandbox, ACE-aware lifecycle, native/SQL blocklists, per-resource locks, and a JSONL audit log of every call.
+- **Safe by default.** Auto-generated token, **read-only by default** (opt into writes), path sandbox, ACE-aware lifecycle, native/SQL blocklists, per-resource locks, and a JSONL audit log of every call.
 
 ---
 

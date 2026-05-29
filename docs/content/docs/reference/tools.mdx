@@ -39,7 +39,7 @@ Every tool input is a strict zod schema. Every tool output follows the [envelope
 | `ensure_resource` | `ensure <name>`, wait for state `started`, return logs | ACE + per-resource lock |
 | `start_resource` / `stop_resource` / `restart_resource` | Lifecycle verbs | ACE + lock + self-target guard |
 | `run_command` | Allowlisted console command (`refresh`, `players`, `say <text>`, lifecycle verbs) | ACE + parsed allowlist |
-| `run_shell` | Allowlisted shell binary inside a resource folder (on Windows it spawns through a shell so `.cmd` shims — npm/npx/vite — run, and rejects shell metacharacters in args) | `readonly` + shell allowlist + sandboxed `cwd` |
+| `run_shell` | Allowlisted shell binary inside a resource folder (on Windows it spawns through a shell so `.cmd` shims — npm/npx/vite — run, and rejects shell metacharacters in args). Bundled `rtk` is allowlisted; `useRtk:true` wraps the command as `rtk <command> <args>` for compressed output. Output keeps the first + last 32 KB per stream | `readonly` + shell allowlist + sandboxed `cwd` |
 
 ## Live player testing
 
@@ -135,3 +135,14 @@ Detects `oxmysql`. Uses `@overextended/oxmysql` for typed access. Defaults to `S
 | `scaffold_fivem_resource_workflow` | **Mandatory pre-flight** for new-resource intent. Returns the full grill workflow text. Engineered description so the agent auto-calls it before `create_resource` / `write_file` |
 | `list_preferences` | The user's saved development preferences (`structure` / `coding` / `ui-design`) + optional example folder each points at. The grill calls this first; a reminder is auto-injected into `create_resource` / `scaffold_fivem_resource_workflow` results. Managed from the dashboard [Preferences tab](/docs/guide/dashboard) |
 | `list_skills` | User-uploaded custom skills with their trigger tools/categories and markdown body. A matching skill is auto-injected into the result of any tool call it's bound to. Managed from the dashboard [Skills tab](/docs/guide/dashboard) |
+
+## Work tracking
+
+A per-resource task board the agent publishes for a human to watch, plus a queue of human-issued requests aimed back at the agent. Surfaced in the dashboard [Sessions tab](/docs/guide/dashboard). Safe in `readonly` mode (writes only dashboard state).
+
+| Tool | Purpose |
+| --- | --- |
+| `track_work` | Set the current task and/or todo list for a resource's session. A session is auto-seeded when `create_resource` runs |
+| `track_get` | Read one session (by `resource`) or all sessions — useful to recover the plan after a context reset |
+| `get_requests` | List pending dashboard requests (`{ id, resource, path\|null, prompt }`; `all:true` for history). A null path targets the whole resource. Pending count is auto-injected into other tool results so the agent notices them |
+| `resolve_request` | Mark a request done, with an optional note |

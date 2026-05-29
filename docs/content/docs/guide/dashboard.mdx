@@ -79,6 +79,22 @@ The master's default landing tab — two read-only views into what's happening, 
 
 This is the human-facing counterpart to the `tail_console` / `scan_errors` tools and the `agent://console` MCP resource.
 
+## Sessions tab (master only)
+
+A per-resource **task board** the agent publishes, plus a way to send the agent targeted requests. Polls every ~5s.
+
+For each session you see:
+
+- **Current task** and a **todo list** (pending / in-progress / done) the agent writes via the `track_work` tool. A session is auto-created when the agent runs `create_resource`.
+- A **file tree** of the resource (recursive, read-only, sandboxed; skips `node_modules` / dot-dirs, bounded depth).
+- Any **requests** queued against that resource and their status.
+
+Click the **✎** icon on any file or folder — or **Ask about resource** — to open a prompt modal. The text is queued as a request `{ resource, path | null, prompt }` (a null `path` means the whole resource). The agent is told about pending requests through a short line injected into its next tool result, then reads them with `get_requests` and closes them with `resolve_request`.
+
+State is file-backed in `dist/tasks.json` and `dist/requests.json` (gitignored).
+
+> The agent only acts on a request while it is **running** (injection rides on its tool calls). If no agent session is active, requests wait in the queue — pair with a polling loop if you want them picked up hands-free.
+
 ## Relationship to `server.cfg`
 
 Convars set in `server.cfg` are the boot defaults. The dashboard layers `dist/permissions.json` on top of them at startup. If you set the same convar in both, the dashboard override wins (it's applied after the cfg is read, and again on every save). To reset to your `server.cfg` baseline, delete `dist/permissions.json` and restart.

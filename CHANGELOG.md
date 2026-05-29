@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] — 2026-05-29
+
+### Added
+
+- **Work-tracking sessions** — the agent publishes a per-resource task board
+  (current task + todo list) via the new **`track_work`** / **`track_get`**
+  tools, surfaced read-only in a new dashboard **Sessions** tab. A session is
+  auto-seeded when `create_resource` runs.
+- **Dashboard → agent requests** — click ✎ on any file or folder in the
+  Sessions file tree (or "ask about the whole resource") to queue a request.
+  Pending requests are surfaced to the agent via injected tool-result text; it
+  reads them with **`get_requests`** and closes them with **`resolve_request`**.
+  A null path targets the whole resource.
+- **`run_shell` rtk integration** — the bundled `rtk` (Rust Token Killer) is now
+  an allowlisted binary (resolved from `bin/`, no PATH entry needed). Pass
+  `useRtk:true` to wrap any command as `rtk <command> <args>` for token-
+  compressed output.
+- **Version build-hash fingerprint** — every build hashes its output bundles and
+  writes `dist/version.json`, stamps `fxmanifest.lua` (`version 'X.Y.Z+<hash>'`),
+  and exposes the result via `GET /health`, the `health` tool, and MCP
+  `serverInfo`. Lets you tell whether a rebuild was actually deployed.
+
+### Changed
+
+- **`agent_api_readonly` now defaults to `true`** — safe by default; set it
+  `false` to allow writes / shell. Intended for local / single-machine dev.
+- **`run_shell` output** keeps the first + last 32 KB per stream (with a
+  byte-count marker for the dropped middle) instead of a raw 1 MB cap, so long
+  build logs no longer flood the agent context.
+- **`EXTENSION_NOT_ALLOWED`** errors no longer echo the full ~100-item allowlist;
+  they return a compact message + count.
+
+### Fixed / hardened
+
+- **`audit.log`** truncates oversized params (e.g. `write_file` bodies) to a
+  2 KB preview and rotates past 5 MB (single `.1` backup).
+
 ## [0.6.2] — 2026-05-28
 
 ### Added

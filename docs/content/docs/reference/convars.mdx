@@ -10,7 +10,7 @@ A flat reference of every convar `agent_api` reads. For organised explanations s
 | Convar | Default | Notes |
 | --- | --- | --- |
 | `agent_api_token` | `""` | blank = auto-generate to `dist/.agent_token` |
-| `agent_api_readonly` | `false` | one switch closes every mutator |
+| `agent_api_readonly` | `true` | one switch closes every mutator; set `false` to allow writes / shell |
 | `agent_api_root` | `resources/[agent]` | primary write+control root |
 | `agent_api_allow_write_paths` | `""` | csv |
 | `agent_api_allow_control_paths` | `""` | csv |
@@ -36,8 +36,10 @@ A flat reference of every convar `agent_api` reads. For organised explanations s
 ## Default shell allowlist
 
 ```
-npm,npx,pnpm,yarn,bun,vite,git,node
+npm,npx,pnpm,yarn,bun,vite,git,node,rtk
 ```
+
+`rtk` (Rust Token Killer) ships bundled at `bin/rtk.exe` and is resolved by absolute path, so it runs even when it is not on the server process PATH. Pass `useRtk:true` to any `run_shell` call to wrap the command as `rtk <command> <args>` for token-compressed output.
 
 ## Built-in server-native danger list (always refused)
 
