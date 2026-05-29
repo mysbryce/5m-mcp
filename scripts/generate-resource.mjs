@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, rmSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  copyFileSync,
+  cpSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -57,6 +65,33 @@ log('copied fxmanifest.lua');
 for (const name of requiredDist) {
   copyFileSync(join(repoRoot, 'dist', name), join(outDir, 'dist', name));
   log(`copied dist/${name}`);
+}
+
+// optional helper bundles spawned at runtime (screenshot_nui / nui tools)
+for (const name of ['screenshot-nui.js', 'nui-interact.js']) {
+  const p = join(repoRoot, 'dist', name);
+  if (existsSync(p)) {
+    copyFileSync(p, join(outDir, 'dist', name));
+    log(`copied dist/${name}`);
+  }
+}
+
+// version fingerprint (read by the runtime for version+hash reporting)
+const verSrc = join(repoRoot, 'dist', 'version.json');
+if (existsSync(verSrc)) {
+  copyFileSync(verSrc, join(outDir, 'dist', 'version.json'));
+  log('copied dist/version.json');
+}
+
+// bundled binaries — rtk (Rust Token Killer) and anything else under bin/.
+// Note: these are platform-specific (bin/rtk.exe is Windows); on a Linux host
+// run_shell falls back to a PATH `rtk` if the bundled binary can't execute.
+const binSrc = join(repoRoot, 'bin');
+if (existsSync(binSrc)) {
+  cpSync(binSrc, join(outDir, 'bin'), { recursive: true });
+  log('copied bin/ (rtk, …)');
+} else {
+  log('skipped bin/ (no bundled binaries found)');
 }
 
 // dashboard single-file build (optional)
