@@ -34,6 +34,7 @@
     "smoke": "node scripts/smoke.mjs",
     "smoke:stdio": "node scripts/smoke-stdio.mjs",
     "generate:resource": "node scripts/generate-resource.mjs",
+    "git:release": "node scripts/release.mjs",
     "docs:install": "cd docs && npm install",
     "docs:dev": "cd docs && npm run dev",
     "docs:build": "cd docs && npm run build",
