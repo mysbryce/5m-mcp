@@ -17,6 +17,17 @@ const HASHED_OUTPUTS = [
   'dist/dashboard/index.html',
 ];
 
+// Rewrite the `version '...'` line in fxmanifest.lua to `<version>+<hash>` so
+// the manifest always advertises exactly what was built. fxmanifest is NOT in
+// the hash set, so stamping it here cannot change the hash (no feedback loop).
+function stampManifest(stamped) {
+  const path = 'fxmanifest.lua';
+  if (!existsSync(path)) return;
+  const src = readFileSync(path, 'utf8');
+  const next = src.replace(/^(\s*version\s+')[^']*(')/m, `$1${stamped}$2`);
+  if (next !== src) writeFileSync(path, next);
+}
+
 function writeVersionFile() {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
   const h = createHash('sha256');
@@ -25,12 +36,14 @@ function writeVersionFile() {
     h.update(readFileSync(f));
   }
   const hash = h.digest('hex').slice(0, 10);
+  const stamped = `${pkg.version}+${hash}`;
   writeFileSync(
     'dist/version.json',
     JSON.stringify({ version: pkg.version, hash, builtAt: new Date().toISOString() }, null, 2) +
       '\n',
   );
-  console.log(`[esbuild] version ${pkg.version}+${hash}`);
+  stampManifest(stamped);
+  console.log(`[esbuild] version ${stamped} (stamped fxmanifest.lua)`);
 }
 
 /** @type {import("esbuild").BuildOptions} */
