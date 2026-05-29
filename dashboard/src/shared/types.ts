@@ -71,3 +71,37 @@ export interface AuditEntry {
   result_code: string;
   caller: string;
 }
+
+export type TodoStatus = 'pending' | 'in_progress' | 'done';
+
+export interface Todo {
+  text: string;
+  status: TodoStatus;
+}
+
+export interface WorkSession {
+  resource: string;
+  currentTask: string;
+  todos: Todo[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RequestStatus = 'pending' | 'done';
+
+export interface WorkRequest {
+  id: string;
+  resource: string;
+  path: string | null;
+  prompt: string;
+  status: RequestStatus;
+  createdAt: string;
+  resolvedAt?: string;
+  note?: string;
+}
+
+export interface FileNode {
+  name: string;
+  type: 'dir' | 'file';
+  children?: FileNode[];
+}

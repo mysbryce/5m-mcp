@@ -1,5 +1,7 @@
 <script setup lang="ts">
-defineProps<{ name: 'monitor' | 'permissions' | 'preferences' | 'skills' | 'users' }>();
+defineProps<{
+  name: 'monitor' | 'sessions' | 'permissions' | 'preferences' | 'skills' | 'users';
+}>();
 </script>
 
 <template>
@@ -19,6 +21,10 @@ defineProps<{ name: 'monitor' | 'permissions' | 'preferences' | 'skills' | 'user
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <line x1="8" y1="21" x2="16" y2="21" />
       <line x1="12" y1="17" x2="12" y2="21" />
+    </template>
+    <template v-else-if="name === 'sessions'">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
     </template>
     <template v-else-if="name === 'permissions'">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />

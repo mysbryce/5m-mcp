@@ -8,13 +8,14 @@ import PreferencesView from './features/preferences/PreferencesView.vue';
 import SkillsView from './features/skills/SkillsView.vue';
 import LogsView from './features/logs/LogsView.vue';
 import UsersView from './features/users/UsersView.vue';
+import SessionsView from './features/sessions/SessionsView.vue';
 import { useAuth } from './features/auth/useAuth';
 import { useI18n } from './i18n/useI18n';
 
 const { me, ready, boot, logout } = useAuth();
 const { t } = useI18n();
 
-type Tab = 'logs' | 'permissions' | 'preferences' | 'skills' | 'users';
+type Tab = 'logs' | 'sessions' | 'permissions' | 'preferences' | 'skills' | 'users';
 const tab = ref<Tab>('permissions');
 
 // Master lands on Monitor by default; members only have Permissions.
@@ -43,6 +44,14 @@ onMounted(boot);
         >
           <TabIcon name="monitor" />{{ t('tabs.logs') }}
         </button>
+        <button
+          v-if="me.role === 'master'"
+          class="tab"
+          :class="{ active: tab === 'sessions' }"
+          @click="tab = 'sessions'"
+        >
+          <TabIcon name="sessions" />{{ t('tabs.sessions') }}
+        </button>
         <button class="tab" :class="{ active: tab === 'permissions' }" @click="tab = 'permissions'">
           <TabIcon name="permissions" />{{ t('tabs.permissions') }}
         </button>
@@ -64,6 +73,7 @@ onMounted(boot);
       </nav>
 
       <LogsView v-if="tab === 'logs' && me.role === 'master'" />
+      <SessionsView v-else-if="tab === 'sessions' && me.role === 'master'" />
       <PermissionsView v-else-if="tab === 'permissions'" />
       <PreferencesView v-else-if="tab === 'preferences' && me.role === 'master'" />
       <SkillsView v-else-if="tab === 'skills' && me.role === 'master'" />

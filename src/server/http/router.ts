@@ -8,6 +8,7 @@ import { RpcErrorCode, isJsonRpcRequest, rpcError } from '../mcp/jsonrpc';
 import { TokenBucket } from '../runtime/rateLimit';
 import { handleDashboard } from '../dashboard/router';
 import { injectedTexts } from '../dashboard/inject';
+import { fullVersion } from '../config/version';
 
 type FivemReq = {
   address: string;
@@ -78,7 +79,11 @@ export function installHttpRouter(deps: RouterDeps): void {
       const path = (req.path ?? '/').split('?')[0] ?? '/';
 
       if (req.method === 'GET' && path === '/health') {
-        reply(res, 200, ok({ status: 'up', resource: GetCurrentResourceName() }));
+        reply(
+          res,
+          200,
+          ok({ status: 'up', resource: GetCurrentResourceName(), version: fullVersion() }),
+        );
         return;
       }
 

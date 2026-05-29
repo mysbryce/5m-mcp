@@ -1,5 +1,6 @@
 import { loadConvars } from './config/convars';
 import { logTokenBanner, resolveToken } from './config/token';
+import { fullVersion } from './config/version';
 import { RingBuffer, installConsoleListener } from './console/buffer';
 import { installHttpRouter } from './http/router';
 import { registerCreateResource } from './tools/createResource';
@@ -58,9 +59,9 @@ import {
 import { registerScaffoldFivemWorkflow } from './tools/scaffoldWorkflow';
 import { registerListPreferences } from './tools/preferences';
 import { registerListSkills } from './tools/skills';
+import { registerTrackTools } from './tools/track';
 import { applyPersistedOverrides } from './dashboard/permissions';
 
-const VERSION = '0.6.2';
 const RESOURCE_NAME = GetCurrentResourceName();
 
 function main(): void {
@@ -74,7 +75,7 @@ function main(): void {
   const consoleBuffer = new RingBuffer(convars.consoleBufferLines);
   installConsoleListener(consoleBuffer);
 
-  registerHealth(VERSION);
+  registerHealth(fullVersion());
   registerListResources();
   registerGetResourceState();
   registerReadFile();
@@ -120,6 +121,7 @@ function main(): void {
   registerScaffoldFivemWorkflow();
   registerListPreferences();
   registerListSkills();
+  registerTrackTools();
 
   registerResource({
     uri: 'agent://console',
@@ -163,7 +165,7 @@ function main(): void {
     },
   });
 
-  console.log(`[${RESOURCE_NAME}] up — v${VERSION} (M6)`);
+  console.log(`[${RESOURCE_NAME}] up — v${fullVersion()}`);
   console.log(`[${RESOURCE_NAME}] HTTP ready at http://127.0.0.1:30120/${RESOURCE_NAME}/`);
   console.log(`[${RESOURCE_NAME}] Dashboard at http://127.0.0.1:30120/${RESOURCE_NAME}/dashboard`);
 }

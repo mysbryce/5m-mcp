@@ -7,6 +7,8 @@ dist/permissions.json
 dist/preferences.json
 dist/skills.json
 dist/skills/
+dist/tasks.json
+dist/requests.json
 dist/_*
 out/
 docs/.next/

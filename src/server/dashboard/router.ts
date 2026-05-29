@@ -15,7 +15,9 @@ import { createSession, destroySession, destroyUserSessions, getSessionUserId } 
 import { PERMISSIONS, applyUpdates, currentValues } from './permissions';
 import { deletePreference, listPreferences, upsertPreference } from './preferences';
 import { availableTriggers, deleteSkill, listSkills, upsertSkill } from './skills';
-import { listResourcesForBrowse, listSubdirs } from './fsbrowse';
+import { buildTree, listResourcesForBrowse, listSubdirs } from './fsbrowse';
+import { deleteSession, listSessions } from './tasks';
+import { createRequest, listRequests } from './requests';
 import { readRecentAudit } from '../audit/log';
 import { RingBuffer } from '../console/buffer';
 
@@ -154,9 +156,43 @@ export async function handleDashboard(
     sub.startsWith('/api/skills') ||
     sub.startsWith('/api/fs') ||
     sub.startsWith('/api/console') ||
-    sub.startsWith('/api/audit')
+    sub.startsWith('/api/audit') ||
+    sub.startsWith('/api/tasks') ||
+    sub.startsWith('/api/requests')
   ) {
     if (user.role !== 'master') return json(403, { error: 'Master only.' });
+
+    // --- work sessions (task board; agent writes via MCP, dashboard reads) ---
+    if (sub === '/api/tasks' && method === 'GET') {
+      return json(200, { sessions: listSessions() });
+    }
+    const sessionDel = sub.match(/^\/api\/tasks\/([a-zA-Z][a-zA-Z0-9_-]{0,63})$/);
+    if (sessionDel && method === 'DELETE') {
+      const result = deleteSession(sessionDel[1]!);
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, { ok: true });
+    }
+
+    // --- requests aimed at the agent ---
+    if (sub === '/api/requests' && method === 'GET') {
+      return json(200, { requests: listRequests() });
+    }
+    if (sub === '/api/requests' && method === 'POST') {
+      const result = createRequest({
+        resource: String(parsed.resource ?? ''),
+        path: parsed.path ? String(parsed.path) : null,
+        prompt: String(parsed.prompt ?? ''),
+      });
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, { request: result.request });
+    }
+
+    // --- file tree (recursive, read-only, sandboxed) ---
+    if (sub === '/api/fs/tree' && method === 'POST') {
+      const result = buildTree(String(parsed.resource ?? ''), String(parsed.sub ?? ''));
+      if (!result.ok) return json(400, { error: result.reason });
+      return json(200, result);
+    }
 
     if (sub === '/api/console' && (method === 'GET' || method === 'POST')) {
       // POST { sinceTs } → only lines newer than sinceTs (incremental polling);

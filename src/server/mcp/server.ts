@@ -5,6 +5,7 @@ import { getPrompt, listPrompts } from './prompts';
 import { listResources, readResource } from './resources';
 import { injectedTexts } from '../dashboard/inject';
 import { readFile } from '../fs/read';
+import { fullVersion } from '../config/version';
 
 function mimeForPath(path: string): string {
   if (path.endsWith('.json')) return 'application/json';
@@ -14,7 +15,6 @@ function mimeForPath(path: string): string {
 }
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agent_api', version: '0.6.2' };
 
 type ToolCallParams = { name: string; arguments?: unknown };
 
@@ -53,7 +53,7 @@ export async function handleMcpRequest(
           prompts: { listChanged: false },
           resources: { listChanged: false },
         },
-        serverInfo: SERVER_INFO,
+        serverInfo: { name: 'agent_api', version: fullVersion() },
       });
 
     case 'ping':
